@@ -1,0 +1,12 @@
+{$DOMAIN} {
+	encode gzip
+	# Topshiriq rasmlari va PDF kitoblar uchun (backend o'zi ham hajmni tekshiradi)
+	request_body {
+		max_size 60MB
+	}
+	reverse_proxy api:8000 {
+		transport http {
+			read_timeout 180s
+		}
+	}
+}

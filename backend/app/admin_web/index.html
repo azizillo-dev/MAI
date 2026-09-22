@@ -1,0 +1,336 @@
+<!doctype html>
+<html lang="uz">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mentor AI Admin</title>
+<style>
+  :root {
+    --bg: #f8fafc; --surface: #ffffff; --surface-2: #f1f5f9; --border: #e2e8f0;
+    --text: #0f172a; --muted: #64748b; --primary: #4f46e5; --primary-soft: #eef2ff;
+    --success: #16a34a; --success-soft: #dcfce7; --warning: #b45309; --warning-soft: #fef3c7;
+    --danger: #dc2626; --danger-soft: #fee2e2; --shadow: 0 1px 2px rgba(15,23,42,.06), 0 4px 16px rgba(15,23,42,.04);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #020617; --surface: #0f172a; --surface-2: #1e293b; --border: #334155;
+      --text: #f8fafc; --muted: #94a3b8; --primary: #818cf8; --primary-soft: #1e1b4b;
+      --success: #4ade80; --success-soft: #14532d; --warning: #fbbf24; --warning-soft: #451a03;
+      --danger: #f87171; --danger-soft: #450a0a; --shadow: none;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  button, input, select { font: inherit; color: inherit; }
+  .hidden { display: none !important; }
+  /* Kirish */
+  .login { min-height: 100vh; display: grid; place-items: center; padding: 16px; }
+  .login-card { width: 100%; max-width: 380px; background: var(--surface); border: 1px solid var(--border); border-radius: 20px; padding: 28px; box-shadow: var(--shadow); }
+  .logo { width: 52px; height: 52px; border-radius: 16px; background: linear-gradient(135deg, var(--primary), #0ea5e9); display: grid; place-items: center; color: #fff; font-size: 26px; margin-bottom: 14px; }
+  h1 { font-size: 22px; margin: 0 0 4px; } h2 { font-size: 20px; margin: 0 0 16px; }
+  .muted { color: var(--muted); }
+  label { display: block; font-size: 13px; font-weight: 600; margin: 14px 0 6px; }
+  input, select { width: 100%; padding: 11px 13px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); }
+  input:focus, select:focus { outline: 2px solid var(--primary); outline-offset: -1px; }
+  .btn { border: 0; border-radius: 12px; padding: 10px 16px; font-weight: 700; cursor: pointer; background: var(--primary); color: #fff; }
+  .btn.block { width: 100%; margin-top: 18px; padding: 12px; }
+  .btn.ghost { background: var(--surface-2); color: var(--text); }
+  .btn.success { background: var(--success); } .btn.danger { background: var(--danger); }
+  .btn.sm { padding: 6px 12px; font-size: 13px; border-radius: 10px; }
+  .btn:disabled { opacity: .5; cursor: default; }
+  .error { color: var(--danger); font-size: 14px; margin-top: 10px; min-height: 20px; }
+  /* Tartib */
+  .app { display: grid; grid-template-columns: 232px 1fr; min-height: 100vh; }
+  aside { background: var(--surface); border-right: 1px solid var(--border); padding: 20px 14px; position: sticky; top: 0; height: 100vh; }
+  .brand { display: flex; align-items: center; gap: 10px; font-weight: 800; margin: 0 8px 22px; }
+  .brand .logo { width: 36px; height: 36px; font-size: 18px; border-radius: 11px; margin: 0; }
+  nav button { display: flex; align-items: center; gap: 10px; width: 100%; text-align: left; border: 0; background: none; padding: 10px 12px; border-radius: 12px; cursor: pointer; font-weight: 600; color: var(--muted); }
+  nav button.active { background: var(--primary-soft); color: var(--primary); }
+  nav .badge { margin-left: auto; }
+  main { padding: 26px; max-width: 1180px; width: 100%; }
+  .topbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 18px; }
+  .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin-bottom: 18px; }
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 18px; padding: 16px 18px; box-shadow: var(--shadow); }
+  .stat .v { font-size: 26px; font-weight: 800; } .stat .l { color: var(--muted); font-size: 13px; }
+  .badge { display: inline-block; padding: 3px 10px; border-radius: 100px; font-size: 12px; font-weight: 700; background: var(--surface-2); color: var(--muted); }
+  .badge.success { background: var(--success-soft); color: var(--success); }
+  .badge.warning { background: var(--warning-soft); color: var(--warning); }
+  .badge.danger { background: var(--danger-soft); color: var(--danger); }
+  .badge.primary { background: var(--primary-soft); color: var(--primary); }
+  table { width: 100%; border-collapse: collapse; }
+  th { text-align: left; font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); font-weight: 700; padding: 10px 12px; border-bottom: 1px solid var(--border); }
+  td { padding: 12px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+  tr:last-child td { border-bottom: 0; }
+  .table-wrap { overflow-x: auto; }
+  .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .tabs { display: flex; gap: 6px; margin-bottom: 14px; flex-wrap: wrap; }
+  .tabs button { border: 1px solid var(--border); background: var(--surface); padding: 7px 14px; border-radius: 100px; cursor: pointer; font-weight: 600; }
+  .tabs button.active { background: var(--primary); border-color: var(--primary); color: #fff; }
+  .empty { text-align: center; padding: 36px; color: var(--muted); }
+  /* Tushum grafigi: bitta qator ma'lumot — bitta rang, qiymat ustunning tepasida */
+  .chart { display: flex; align-items: flex-end; gap: 14px; height: 170px; padding-top: 22px; }
+  .bar { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; height: 100%; gap: 6px; }
+  .bar .fill { width: 100%; max-width: 46px; background: var(--primary); border-radius: 4px 4px 0 0; min-height: 3px; }
+  .bar .val { font-size: 12px; font-weight: 700; } .bar .m { font-size: 12px; color: var(--muted); }
+  .plan-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; }
+  .toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: var(--text); color: var(--bg); padding: 10px 18px; border-radius: 12px; font-weight: 600; box-shadow: var(--shadow); }
+  dialog { border: 1px solid var(--border); border-radius: 18px; background: var(--surface); color: var(--text); padding: 22px; width: min(420px, 92vw); }
+  dialog::backdrop { background: rgba(2,6,23,.5); }
+  @media (max-width: 760px) {
+    .app { grid-template-columns: 1fr; }
+    aside { position: static; height: auto; border-right: 0; border-bottom: 1px solid var(--border); }
+    nav { display: flex; overflow-x: auto; gap: 4px; } nav button { white-space: nowrap; width: auto; }
+    main { padding: 16px; }
+  }
+</style>
+</head>
+<body>
+
+<section id="login" class="login hidden">
+  <form class="login-card" id="loginForm">
+    <div class="logo">✦</div>
+    <h1>Mentor AI Admin</h1>
+    <div class="muted">Boshqaruv paneliga kirish</div>
+    <label for="email">Email</label>
+    <input id="email" type="email" autocomplete="username" required>
+    <label for="password">Parol</label>
+    <input id="password" type="password" autocomplete="current-password" required>
+    <button class="btn block" type="submit">Kirish</button>
+    <div class="error" id="loginError"></div>
+  </form>
+</section>
+
+<section id="app" class="app hidden">
+  <aside>
+    <div class="brand"><div class="logo">✦</div>Mentor AI</div>
+    <nav id="nav">
+      <button data-page="dashboard" class="active">📊 Boshqaruv</button>
+      <button data-page="requests">🧾 So'rovlar <span class="badge warning hidden" id="pendingBadge"></span></button>
+      <button data-page="teachers">👩‍🏫 O'qituvchilar</button>
+      <button data-page="plans">💎 Tariflar</button>
+      <button id="logout">↩ Chiqish</button>
+    </nav>
+  </aside>
+  <main id="main"></main>
+</section>
+
+<dialog id="grantDialog">
+  <form method="dialog" id="grantForm">
+    <h2>Tarif berish</h2>
+    <div class="muted" id="grantWho"></div>
+    <label for="grantPlan">Tarif</label>
+    <select id="grantPlan"></select>
+    <label for="grantMonths">Necha oy</label>
+    <input id="grantMonths" type="number" min="1" max="24" value="1">
+    <div class="row" style="margin-top:18px;justify-content:flex-end">
+      <button class="btn ghost" value="cancel" type="submit">Bekor qilish</button>
+      <button class="btn" value="ok" type="submit">Berish</button>
+    </div>
+  </form>
+</dialog>
+
+<script>
+const API = "/api/v1";
+const $ = (s) => document.querySelector(s);
+const esc = (v) => String(v ?? "").replace(/[&<>"']/g, (c) => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const money = (n) => new Intl.NumberFormat("uz-UZ").format(n || 0) + " so'm";
+const date = (d) => d ? new Date(d).toLocaleDateString("uz-UZ", {day: "2-digit", month: "2-digit", year: "numeric"}) : "—";
+let token = sessionStorage.getItem("admin_token");
+let page = "dashboard";
+
+function toast(msg) {
+  const t = document.createElement("div"); t.className = "toast"; t.textContent = msg;
+  document.body.appendChild(t); setTimeout(() => t.remove(), 2600);
+}
+
+async function api(path, opts = {}) {
+  const res = await fetch(API + path, {
+    ...opts,
+    headers: {"Content-Type": "application/json", ...(token ? {Authorization: "Bearer " + token} : {})},
+  });
+  if (res.status === 401 && path !== "/admin/login") { logout(); throw new Error("Sessiya tugadi"); }
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data?.error?.message || "Xatolik");
+  return data;
+}
+
+function logout() { token = null; sessionStorage.removeItem("admin_token"); show(); }
+
+function show() {
+  $("#login").classList.toggle("hidden", !!token);
+  $("#app").classList.toggle("hidden", !token);
+  if (token) render();
+}
+
+$("#loginForm").addEventListener("submit", async (e) => {
+  e.preventDefault(); $("#loginError").textContent = "";
+  try {
+    const r = await api("/admin/login", {method: "POST", body: JSON.stringify({email: $("#email").value, password: $("#password").value})});
+    token = r.tokens.access_token; sessionStorage.setItem("admin_token", token); show();
+  } catch (err) { $("#loginError").textContent = err.message; }
+});
+$("#logout").addEventListener("click", logout);
+$("#nav").addEventListener("click", (e) => {
+  const b = e.target.closest("button[data-page]"); if (!b) return;
+  page = b.dataset.page;
+  document.querySelectorAll("#nav button[data-page]").forEach((x) => x.classList.toggle("active", x === b));
+  render();
+});
+
+const statusBadge = (s) => ({
+  trial: '<span class="badge primary">Sinov</span>', active: '<span class="badge success">Faol</span>',
+  expired: '<span class="badge danger">Tugagan</span>', pending: '<span class="badge warning">Kutilmoqda</span>',
+  approved: '<span class="badge success">Tasdiqlangan</span>', rejected: '<span class="badge danger">Rad etilgan</span>',
+}[s] || `<span class="badge">${esc(s)}</span>`);
+
+async function render() {
+  const main = $("#main");
+  main.innerHTML = '<div class="empty">Yuklanmoqda…</div>';
+  try {
+    const stats = await api("/admin/stats");
+    const b = $("#pendingBadge"); b.textContent = stats.pending_requests; b.classList.toggle("hidden", !stats.pending_requests);
+    if (page === "dashboard") main.innerHTML = dashboard(stats);
+    if (page === "requests") await requests(main, "pending");
+    if (page === "teachers") await teachers(main, "");
+    if (page === "plans") await plansPage(main);
+  } catch (err) { main.innerHTML = `<div class="empty">${esc(err.message)}</div>`; }
+}
+
+function dashboard(s) {
+  const max = Math.max(1, ...s.revenue_by_month.map((m) => m.amount));
+  const bars = s.revenue_by_month.map((m) => `
+    <div class="bar" title="${esc(m.month)}: ${money(m.amount)}">
+      <div class="val">${m.amount ? Math.round(m.amount / 1000) + "k" : ""}</div>
+      <div class="fill" style="height:${Math.max(2, m.amount / max * 100)}%"></div>
+      <div class="m">${esc(m.month.slice(5))}</div>
+    </div>`).join("");
+  const stat = (v, l) => `<div class="card stat"><div class="v">${v}</div><div class="l">${l}</div></div>`;
+  return `
+    <div class="topbar"><h2>Boshqaruv paneli</h2></div>
+    <div class="cards">
+      ${stat(money(s.revenue_month), "Shu oy tushum")}
+      ${stat(s.pending_requests, "Tasdiqlash kutilmoqda")}
+      ${stat(s.teachers, "O'qituvchilar")}
+      ${stat(s.students, "O'quvchilar")}
+    </div>
+    <div class="cards">
+      ${stat(s.subscriptions.active, "Pullik obunalar")}
+      ${stat(s.subscriptions.trial, "Sinovda")}
+      ${stat(s.subscriptions.expired, "Muddati tugagan")}
+      ${stat(s.groups, "Faol guruhlar")}
+    </div>
+    <div class="cards">
+      <div class="card" style="grid-column:1/-1">
+        <div class="row" style="justify-content:space-between"><strong>Tushum, oxirgi 6 oy</strong><span class="muted">Jami: ${money(s.revenue_total)}</span></div>
+        <div class="chart">${bars}</div>
+      </div>
+    </div>
+    <div class="cards">
+      ${stat(s.submissions_today, "Topshiriqlar (24 soat)")}
+      ${stat(s.ai_calls_today, "AI chaqiruvlar (24 soat)")}
+      ${stat(s.ai_errors_today, "AI xatolari (24 soat)")}
+      ${stat(new Intl.NumberFormat("uz-UZ").format(s.ai_tokens_today), "AI tokenlar (24 soat)")}
+    </div>`;
+}
+
+async function requests(main, status) {
+  const list = await api("/admin/requests?status=" + status);
+  const tabs = ["pending", "approved", "rejected", "all"].map((s) =>
+    `<button data-s="${s}" class="${s === status ? "active" : ""}">${{pending: "Kutilmoqda", approved: "Tasdiqlangan", rejected: "Rad etilgan", all: "Hammasi"}[s]}</button>`).join("");
+  const rows = list.map((r) => `
+    <tr>
+      <td><strong>${esc(r.teacher.name)}</strong><div class="muted">${esc(r.teacher.email || r.teacher.phone || "")}</div></td>
+      <td>${esc(r.plan.name)} · ${r.months} oy</td>
+      <td><strong>${money(r.amount_uzs)}</strong></td>
+      <td>${date(r.created_at)}</td>
+      <td>${statusBadge(r.status)}${r.teacher_note ? `<div class="muted">${esc(r.teacher_note)}</div>` : ""}</td>
+      <td>${r.status === "pending" ? `<div class="row">
+        <button class="btn sm success" data-act="approve" data-id="${r.id}">Tasdiqlash</button>
+        <button class="btn sm ghost" data-act="reject" data-id="${r.id}">Rad etish</button></div>` : date(r.decided_at)}</td>
+    </tr>`).join("");
+  main.innerHTML = `
+    <div class="topbar"><h2>Tarif so'rovlari</h2></div>
+    <div class="tabs">${tabs}</div>
+    <div class="card table-wrap">${list.length ? `<table><thead><tr><th>O'qituvchi</th><th>Tarif</th><th>Summa</th><th>Sana</th><th>Holat</th><th></th></tr></thead><tbody>${rows}</tbody></table>`
+      : '<div class="empty">So\'rovlar yo\'q</div>'}</div>`;
+  main.querySelector(".tabs").onclick = (e) => { const s = e.target.dataset.s; if (s) requests(main, s); };
+  main.querySelectorAll("[data-act]").forEach((btn) => btn.onclick = async () => {
+    const approve = btn.dataset.act === "approve";
+    if (approve && !confirm("To'lov qabul qilindimi? Tarif darhol yoqiladi.")) return;
+    btn.disabled = true;
+    try {
+      await api(`/admin/requests/${btn.dataset.id}/${btn.dataset.act}`, {method: "POST", body: JSON.stringify({})});
+      toast(approve ? "Tasdiqlandi — tarif yoqildi" : "Rad etildi"); render();
+    } catch (err) { toast(err.message); btn.disabled = false; }
+  });
+}
+
+async function teachers(main, q) {
+  const [list, allPlans] = await Promise.all([api("/admin/teachers?q=" + encodeURIComponent(q)), api("/admin/plans")]);
+  const rows = list.map((t) => `
+    <tr>
+      <td><strong>${esc(t.name)}</strong><div class="muted">${esc(t.email || t.phone || "")}</div></td>
+      <td>${esc(t.plan.name)}<div>${statusBadge(t.status)} ${t.status !== "expired" ? `<span class="muted">${t.days_left} kun</span>` : ""}</div></td>
+      <td>${t.groups} guruh · ${t.students} o'quvchi</td>
+      <td>${date(t.created_at)}</td>
+      <td><div class="row">
+        <button class="btn sm" data-grant="${t.id}" data-name="${esc(t.name)}">Tarif berish</button>
+        <button class="btn sm ghost" data-block="${t.id}" data-on="${t.is_active}">${t.is_active ? "Bloklash" : "Blokdan chiqarish"}</button>
+      </div></td>
+    </tr>`).join("");
+  main.innerHTML = `
+    <div class="topbar"><h2>O'qituvchilar</h2><input id="q" placeholder="Ism, email yoki telefon" value="${esc(q)}" style="max-width:280px"></div>
+    <div class="card table-wrap">${list.length ? `<table><thead><tr><th>O'qituvchi</th><th>Tarif</th><th>Hajm</th><th>Ro'yxatdan o'tgan</th><th></th></tr></thead><tbody>${rows}</tbody></table>`
+      : '<div class="empty">Topilmadi</div>'}</div>`;
+  let timer; $("#q").oninput = (e) => { clearTimeout(timer); timer = setTimeout(() => teachers(main, e.target.value), 350); };
+  main.querySelectorAll("[data-grant]").forEach((btn) => btn.onclick = () => {
+    $("#grantWho").textContent = btn.dataset.name + " — naqd to'lov yoki sovg'a (tushumga yozilmaydi)";
+    $("#grantPlan").innerHTML = allPlans.filter((p) => p.is_active).map((p) => `<option value="${esc(p.code)}">${esc(p.name)} — ${money(p.price_uzs)}/oy</option>`).join("");
+    const dlg = $("#grantDialog"); dlg.showModal();
+    dlg.onclose = async () => {
+      if (dlg.returnValue !== "ok") return;
+      try {
+        await api(`/admin/teachers/${btn.dataset.grant}/grant`, {method: "POST", body: JSON.stringify({plan_code: $("#grantPlan").value, months: +$("#grantMonths").value})});
+        toast("Tarif berildi"); teachers(main, q);
+      } catch (err) { toast(err.message); }
+    };
+  });
+  main.querySelectorAll("[data-block]").forEach((btn) => btn.onclick = async () => {
+    const block = btn.dataset.on === "true";
+    if (block && !confirm("O'qituvchi bloklansinmi? U ilovaga kira olmaydi.")) return;
+    await api(`/admin/teachers/${btn.dataset.block}/${block ? "block" : "unblock"}`, {method: "POST", body: "{}"});
+    toast(block ? "Bloklandi" : "Blokdan chiqarildi"); teachers(main, q);
+  });
+}
+
+async function plansPage(main) {
+  const list = await api("/admin/plans");
+  main.innerHTML = `
+    <div class="topbar"><h2>Tariflar</h2></div>
+    <div class="plan-grid">${list.map((p) => `
+      <form class="card" data-id="${p.id}">
+        <div class="row" style="justify-content:space-between"><strong>${esc(p.code)}</strong>${p.is_active ? statusBadge("active") : '<span class="badge">O\'chirilgan</span>'}</div>
+        <label>Nomi</label><input name="name" value="${esc(p.name)}">
+        <label>Narx (so'm / oy)</label><input name="price_uzs" type="number" min="0" value="${p.price_uzs}">
+        <div class="row"><div style="flex:1"><label>Guruhlar</label><input name="max_groups" type="number" min="1" value="${p.max_groups}"></div>
+        <div style="flex:1"><label>O'quvchilar</label><input name="max_students" type="number" min="1" value="${p.max_students}"></div></div>
+        <label><input name="is_active" type="checkbox" ${p.is_active ? "checked" : ""} style="width:auto;margin-right:6px">Faol</label>
+        <button class="btn block" type="submit">Saqlash</button>
+      </form>`).join("")}</div>
+    <p class="muted">Narx o'zgarishi yangi so'rovlarga ta'sir qiladi; allaqachon yuborilgan so'rovlar eski narxda qoladi.</p>`;
+  main.querySelectorAll("form[data-id]").forEach((f) => f.onsubmit = async (e) => {
+    e.preventDefault();
+    const d = new FormData(f);
+    try {
+      await api("/admin/plans/" + f.dataset.id, {method: "PATCH", body: JSON.stringify({
+        name: d.get("name"), price_uzs: +d.get("price_uzs"), max_groups: +d.get("max_groups"),
+        max_students: +d.get("max_students"), is_active: d.get("is_active") === "on"})});
+      toast("Saqlandi");
+    } catch (err) { toast(err.message); }
+  });
+}
+
+show();
+</script>
+</body>
+</html>
