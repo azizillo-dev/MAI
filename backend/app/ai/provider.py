@@ -213,20 +213,26 @@ class GeminiProvider:
         from google.genai import errors
 
         last: Exception | None = None
-        for model in [self.model, *self.fallback_models]:
+        models = [self.model, *self.fallback_models]
+        for i, model in enumerate(models):
+            is_last = i == len(models) - 1
             for attempt in range(4):
                 try:
                     response = await self.client.aio.models.generate_content(model=model, contents=parts, config=config)
                     return response, model  # qaysi model javob bergani xarajat hisobiga yoziladi
                 except errors.ClientError as exc:
                     last = exc
-                    if exc.code == 429 and attempt < 3:
-                        await asyncio.sleep(self.retry_base_seconds * 2 ** (attempt + 1))
-                        continue
+                    if exc.code == 429:
+                        # Limit har bir modelga alohida: kutmasdan zaxira modelga o'tamiz,
+                        # faqat oxirgi model qolganda qisqa kutib qayta urinamiz
+                        if not is_last:
+                            break
+                        if attempt < 2:
+                            await asyncio.sleep(self.retry_base_seconds * 2 ** (attempt + 1))
+                            continue
+                        raise AiError("AI limiti tugadi (daqiqa/kunlik). Birozdan keyin qayta urinib ko'ring") from exc
                     if exc.code == 404:  # model nomi eskirgan: keyingisiga o'tamiz
                         break
-                    if exc.code == 429:
-                        raise AiError("AI limiti tugadi (daqiqa/kunlik). Birozdan keyin qayta urinib ko'ring") from exc
                     if exc.code in (400, 403) and "API key" in str(exc):
                         raise AiError("Gemini API kaliti noto'g'ri yoki faol emas") from exc
                     raise AiError(f"AI so'rovi rad etildi ({exc.code})") from exc
@@ -245,6 +251,8 @@ class GeminiProvider:
                         continue
                     raise AiError("AI xizmatiga ulanib bo'lmadi") from exc
         code = getattr(last, "code", None)
+        if code == 429:
+            raise AiError("AI limiti tugadi (daqiqa/kunlik). Birozdan keyin qayta urinib ko'ring") from last
         raise AiError(f"AI hozir band ({code}). Keyinroq qayta urinib ko'ring") from last
 
     @staticmethod

@@ -24,12 +24,20 @@ from app.services.plans import seed_plans  # noqa: E402
 
 @pytest.fixture
 async def client(tmp_path):
+    # TEST_DATABASE_URL berilsa testlar PostgreSQL'da ishlaydi (production bilan bir xil xatti-harakat:
+    # SQLite kechiradigan xatolar shu yerda chiqadi). Aks holda — vaqtinchalik SQLite fayli.
     # Fayl bazasi va alohida ulanishlar: fon vazifasi (AI baholash) so'rov sessiyasi bilan bitta
-    # ulanishni bo'lishmaydi — Postgres'dagi haqiqiy holatga mos, tranzaksiyalar aralashib ketmaydi
-    engine = create_async_engine(f"sqlite+aiosqlite:///{(tmp_path / 'test.db').as_posix()}", connect_args={"timeout": 30})
+    # ulanishni bo'lishmaydi, tranzaksiyalar aralashib ketmaydi.
+    pg_url = os.environ.get("TEST_DATABASE_URL")
+    if pg_url:
+        engine = create_async_engine(pg_url, pool_size=5, max_overflow=10)
+    else:
+        engine = create_async_engine(f"sqlite+aiosqlite:///{(tmp_path / 'test.db').as_posix()}", connect_args={"timeout": 30})
     db_session._engine = engine
     db_session._sessionmaker = async_sessionmaker(engine, expire_on_commit=False)
     async with engine.begin() as conn:
+        if pg_url:
+            await conn.run_sync(Base.metadata.drop_all)
         await conn.run_sync(Base.metadata.create_all)
     async with db_session._sessionmaker() as db:
         await seed_plans(db)

@@ -61,3 +61,4 @@ Write-Host "Admin panel:  $url/admin"
 Write-Host ""
 Write-Host "Agar manzil APK'dagidan farq qilsa, APK'ni qayta yig'ing:"
 Write-Host "  flutter build apk --release --dart-define=API_BASE_URL=$url/api/v1"
+

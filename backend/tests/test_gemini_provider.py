@@ -64,12 +64,22 @@ async def test_grade_success_and_usage(gemini):
     assert "Kasrlar" in cfg.system_instruction  # vazifa konteksti o'zgarmas qismda (kesh uchun)
 
 
-async def test_rate_limit_becomes_ai_error(gemini):
+async def test_rate_limit_everywhere_becomes_ai_error(gemini):
     p, install, calls = gemini
     install(errors.ClientError(429, {"error": {"message": "Resource exhausted"}}))
     with pytest.raises(ai.AiError, match="limiti"):
         await p.grade(CTX, [], "javob")
-    assert len(calls) == 4  # 3 marta kutib qayta urindi
+    # Har bir modelda kutmasdan keyingisiga o'tadi; faqat oxirgi modelda 3 marta urinadi
+    assert [c["model"] for c in calls] == [p.model, *p.fallback_models[:-1]] + [p.fallback_models[-1]] * 3
+
+
+async def test_rate_limit_switches_to_fallback_immediately(gemini):
+    p, install, calls = gemini
+    install(errors.ClientError(429, {"error": {"message": "Resource exhausted"}}), _response(GOOD))
+    result, usage = await p.grade(CTX, [], "javob")
+    assert result.score_percent == 100
+    assert [c["model"] for c in calls] == [p.model, p.fallback_models[0]]
+    assert usage.model == p.fallback_models[0]
 
 
 async def test_busy_model_retries_then_falls_back(gemini):

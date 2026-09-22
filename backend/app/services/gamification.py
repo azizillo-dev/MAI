@@ -211,14 +211,16 @@ def period_start(period: str, now: datetime | None = None) -> datetime | None:
 
 async def scope_students(db: AsyncSession, group: Group, scope: str) -> list[User]:
     """scope=group: shu guruh; scope=teacher: shu ustozning barcha faol guruhlaridagi o'quvchilar."""
-    q = select(User).join(GroupMember, GroupMember.student_id == User.id).where(GroupMember.status == MemberStatus.ACTIVE)
+    # Avval id'lar (bir o'quvchi bir nechta guruhda bo'lishi mumkin), keyin foydalanuvchilar.
+    # DISTINCT butun qatorga emas: profil bilan birga yuklanadigan JSON ustunlarini Postgres solishtira olmaydi.
+    ids = select(GroupMember.student_id).where(GroupMember.status == MemberStatus.ACTIVE)
     if scope == "teacher":
-        q = q.join(Group, Group.id == GroupMember.group_id).where(
+        ids = ids.join(Group, Group.id == GroupMember.group_id).where(
             Group.teacher_id == group.teacher_id, Group.status == GroupStatus.ACTIVE
         )
     else:
-        q = q.where(GroupMember.group_id == group.id)
-    return list((await db.scalars(q.distinct())).all())
+        ids = ids.where(GroupMember.group_id == group.id)
+    return list((await db.scalars(select(User).where(User.id.in_(ids)))).unique().all())
 
 
 async def leaderboard(db: AsyncSession, group: Group, scope: str, period: str) -> list[dict]:

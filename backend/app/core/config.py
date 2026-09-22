@@ -65,7 +65,8 @@ class Settings(BaseSettings):
     gemini_api_key: str = ""
     gemini_model: str = "gemini-3.6-flash"
     # Asosiy model band bo'lsa navbat bilan sinaladi (vergul bilan)
-    gemini_fallback_models: str = "gemini-3.5-flash"
+    # Har bir modelning bepul limiti alohida: biri tugasa keyingisi ishlaydi
+    gemini_fallback_models: str = "gemini-3.5-flash,gemini-3.8-flash,gemini-flash-latest,gemini-3.5-flash-lite"
     # Shu ishonchdan past natija o'quvchiga chiqmaydi, avval ustoz ko'radi
     ai_min_confidence: float = 0.7
     # Kitobdan bir vazifaga olinadigan maksimal sahifalar (xarajat va sifat uchun)
