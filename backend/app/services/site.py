@@ -42,11 +42,11 @@ DEFAULT_ECONOMICS = {
 }
 
 DEFAULT_DOWNLOADS = {
-    "version": "1.0.0",
+    "version": "1.1.0",
     "arm64_url": "/downloads/MentorAI-arm64.apk",
     "legacy_url": "/downloads/MentorAI-eski-telefonlar.apk",
-    "arm64_size_mb": 29,
-    "legacy_size_mb": 25,
+    "arm64_size_mb": 30,
+    "legacy_size_mb": 26,
     "note": "Android 7.0 va undan yuqori",
 }
 

@@ -5,6 +5,7 @@ from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.responses import HTMLResponse
+from fastapi.staticfiles import StaticFiles
 
 from app.api.routes import admin, assignments, auth, extras, gamification, groups, me, teachers
 from app.core.config import get_settings
@@ -50,6 +51,10 @@ def create_app() -> FastAPI:
     @app.get("/health", include_in_schema=False)
     async def health() -> dict:
         return {"ok": True}
+
+    # Oxirida: boshqa yo'llarga to'g'ri kelmagan so'rovlar sayt fayllariga tushadi
+    if settings.site_dir:
+        app.mount("/", StaticFiles(directory=settings.site_dir, html=True), name="site")
 
     return app
 

@@ -59,6 +59,8 @@ class Settings(BaseSettings):
     media_url_ttl_seconds: int = 86400
     # Production'da fayllarni nginx beradi (X-Accel-Redirect). Bo'sh bo'lsa — Python o'zi beradi
     media_accel_prefix: str = ""
+    # Taqdimot sayti papkasi (lokal ko'rish uchun). Production'da saytni nginx beradi — bo'sh qoldiring
+    site_dir: str = ""
     max_image_mb: int = 10
     max_pdf_mb: int = 60
     max_images_per_submission: int = 10

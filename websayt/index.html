@@ -1,0 +1,642 @@
+<!doctype html>
+<html lang="uz" class="no-js">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Mentor AI — uy vazifasini AI tekshiradi</title>
+  <meta name="description" content="Mentor AI — o‘qituvchi uchun uy vazifasini tekshiradigan, guruhni tahlil qiladigan va LaTeX formulali topshiriq tuzadigan AI yordamchi. Android ilovani bepul yuklab oling.">
+  <meta name="theme-color" content="#07071a">
+  <meta property="og:title" content="Mentor AI — daftarni suratga oling, qolganini AI tekshiradi">
+  <meta property="og:description" content="AI tekshiruv, guruh tahlili, AI vazifa generatori, reyting va jetonlar — bitta ilovada.">
+  <meta property="og:image" content="assets/screens/teacher-dashboard.webp">
+  <link rel="icon" type="image/png" href="assets/img/favicon.png">
+  <link rel="apple-touch-icon" href="assets/img/favicon.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Unbounded:wght@500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+  <link rel="preload" as="image" href="assets/screens/teacher-dashboard.webp">
+  <link rel="stylesheet" href="assets/css/site.css">
+</head>
+<body>
+
+<!-- ============================================================ Ikonkalar -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <linearGradient id="g-gold" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#FDE68A"/><stop offset=".45" stop-color="#F59E0B"/><stop offset="1" stop-color="#B45309"/></linearGradient>
+    <linearGradient id="g-purple" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#DDD6FE"/><stop offset=".45" stop-color="#8B5CF6"/><stop offset="1" stop-color="#5B21B6"/></linearGradient>
+    <linearGradient id="g-blue" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#BFDBFE"/><stop offset=".45" stop-color="#3B82F6"/><stop offset="1" stop-color="#1E3A8A"/></linearGradient>
+    <linearGradient id="g-green" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#BBF7D0"/><stop offset=".45" stop-color="#22C55E"/><stop offset="1" stop-color="#166534"/></linearGradient>
+    <linearGradient id="g-silver" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#F1F5F9"/><stop offset=".45" stop-color="#94A3B8"/><stop offset="1" stop-color="#334155"/></linearGradient>
+  </defs>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></symbol>
+  <symbol id="i-x" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></symbol>
+  <symbol id="i-camera" viewBox="0 0 24 24"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3z"/><circle cx="12" cy="13" r="3"/></symbol>
+  <symbol id="i-book" viewBox="0 0 24 24"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2zM22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></symbol>
+  <symbol id="i-text" viewBox="0 0 24 24"><path d="M21 6H3M15 12H3M17 18H3"/></symbol>
+  <symbol id="i-spark" viewBox="0 0 24 24"><path d="M11 3.5l1.8 4.9 4.9 1.8-4.9 1.8L11 16.9l-1.8-4.9-4.9-1.8 4.9-1.8zM18.5 14.5l.9 2.1 2.1.9-2.1.9-.9 2.1-.9-2.1-2.1-.9 2.1-.9z"/></symbol>
+  <symbol id="i-trend" viewBox="0 0 24 24"><path d="M22 7 13.5 15.5l-5-5L2 17M16 7h6v6"/></symbol>
+  <symbol id="i-bars" viewBox="0 0 24 24"><path d="M3 3v18h18M18 17V9M13 17V5M8 17v-3"/></symbol>
+  <symbol id="i-file" viewBox="0 0 24 24"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7z"/><path d="M14 2v4a2 2 0 0 0 2 2h4M16 13H8M16 17H8M10 9H8"/></symbol>
+  <symbol id="i-trophy" viewBox="0 0 24 24"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6M18 9h1.5a2.5 2.5 0 0 0 0-5H18M4 22h16M10 14.7V17c0 .6-.5 1-1 1.2C7.9 18.8 7 20.2 7 22M14 14.7V17c0 .6.5 1 1 1.2 1.1.6 2 2 2 3.8M18 2H6v7a6 6 0 0 0 12 0z"/></symbol>
+  <symbol id="i-gift" viewBox="0 0 24 24"><rect x="3" y="8" width="18" height="4" rx="1"/><path d="M12 8v13M19 12v7a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2v-7M7.5 8a2.5 2.5 0 0 1 0-5C10 3 12 8 12 8s2-5 4.5-5a2.5 2.5 0 0 1 0 5"/></symbol>
+  <symbol id="i-chat" viewBox="0 0 24 24"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22z"/></symbol>
+  <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></symbol>
+  <symbol id="i-shield" viewBox="0 0 24 24"><path d="M20 13c0 5-3.5 7.5-7.7 9a1 1 0 0 1-.6 0C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.2-2.7a1.2 1.2 0 0 1 1.6 0C14.5 3.8 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12 2 2 4-4"/></symbol>
+  <symbol id="i-lock" viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></symbol>
+  <symbol id="i-unlock" viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 9.9-1"/></symbol>
+  <symbol id="i-download" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></symbol>
+  <symbol id="i-arrow" viewBox="0 0 24 24"><path d="M5 12h14M12 5l7 7-7 7"/></symbol>
+  <symbol id="i-arrow-up" viewBox="0 0 24 24"><path d="M7 17 17 7M7 7h10v10"/></symbol>
+  <symbol id="i-star" viewBox="0 0 24 24"><path d="M12 2.5l2.9 5.9 6.6 1-4.8 4.6 1.1 6.5L12 17.4l-5.8 3.1 1.1-6.5L2.5 9.4l6.6-1z"/></symbol>
+  <symbol id="i-pen" viewBox="0 0 24 24"><path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></symbol>
+  <symbol id="i-bulb" viewBox="0 0 24 24"><path d="M15 14c.2-1 .7-1.7 1.5-2.5 1-.9 1.5-2.2 1.5-3.5A6 6 0 0 0 6 8c0 1 .2 2.2 1.5 3.5.7.7 1.3 1.5 1.5 2.5M9 18h6M10 22h4"/></symbol>
+  <symbol id="i-rocket" viewBox="0 0 24 24"><path d="M4.5 16.5c-1.5 1.3-2 5-2 5s3.7-.5 5-2c.7-.8.7-2.1-.1-2.9a2.2 2.2 0 0 0-2.9-.1z"/><path d="m12 15-3-3a22 22 0 0 1 2-4A12.9 12.9 0 0 1 22 2c0 2.7-.8 7.5-6 11a22.4 22.4 0 0 1-4 2z"/><path d="M9 12H4s.6-3 2-4c1.6-1.1 5 0 5 0M12 15v5s3-.6 4-2c1.1-1.6 0-5 0-5"/></symbol>
+  <symbol id="i-calc" viewBox="0 0 24 24"><rect x="4" y="2" width="16" height="20" rx="2"/><path d="M8 6h8M16 14v4M16 10h.01M12 10h.01M8 10h.01M12 14h.01M8 14h.01M12 18h.01M8 18h.01"/></symbol>
+  <symbol id="i-lang" viewBox="0 0 24 24"><path d="m5 8 6 6M4 14l6-6 2-3M2 5h12M7 2h1M22 22l-5-10-5 10M14 18h6"/></symbol>
+  <symbol id="i-heart" viewBox="0 0 24 24"><path d="M19 14c1.5-1.5 3-3.2 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.8 0-3 .5-4.5 2-1.5-1.5-2.7-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4 3 5.5l7 7z"/></symbol>
+  <symbol id="i-medal" viewBox="0 0 24 24"><path d="M7.2 15 2.7 7.1a2 2 0 0 1 .1-2.2l1.6-2.1A2 2 0 0 1 6 2h12a2 2 0 0 1 1.6.8l1.6 2.1a2 2 0 0 1 .1 2.2L16.8 15M11 12 5.1 2.2M13 12l5.9-9.8M8 7h8"/><circle cx="12" cy="17" r="5"/></symbol>
+  <symbol id="i-users" viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.9M16 3.1a4 4 0 0 1 0 7.8"/></symbol>
+  <symbol id="i-menu" viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></symbol>
+  <symbol id="i-flame" viewBox="0 0 24 24"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.4-.5-2-1-3-1.1-2.1-.2-4 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.2.4-2.3 1-3a2.5 2.5 0 0 0 2.5 2.5z"/></symbol>
+  <symbol id="i-help" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="4"/><path d="m4.9 4.9 4.3 4.3M14.8 9.2l4.3-4.3M14.8 14.8l4.3 4.3M9.2 14.8l-4.3 4.3"/></symbol>
+  <symbol id="i-phone" viewBox="0 0 24 24"><rect x="5" y="2" width="14" height="20" rx="3"/><path d="M11 18h2"/></symbol>
+  <symbol id="i-zap" viewBox="0 0 24 24"><path d="M13 2 3 14h9l-1 8 10-12h-9z"/></symbol>
+  <symbol id="i-eye" viewBox="0 0 24 24"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></symbol>
+  <symbol id="i-coins" viewBox="0 0 24 24"><circle cx="8" cy="8" r="6"/><path d="M18.1 10.4A6 6 0 1 1 10.3 18M7 6h1v4M16.7 13.9l.7.7-2.8 2.8"/></symbol>
+  <symbol id="i-settings" viewBox="0 0 24 24"><path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></symbol>
+</svg>
+
+<a class="skip" href="#main">Asosiy qismga o‘tish</a>
+
+<!-- ============================================================ Navigatsiya -->
+<header class="nav" id="nav">
+  <div class="container nav__inner">
+    <a class="brand" href="#top" aria-label="Mentor AI — bosh sahifa">
+      <span class="brand__mark"><img src="assets/img/mark.png" alt="" width="34" height="23"></span>
+      <span class="brand__name">Mentor<b>AI</b></span>
+    </a>
+    <nav class="nav__links" id="navLinks" aria-label="Asosiy menyu">
+      <a href="#imkoniyatlar">Imkoniyatlar</a>
+      <a href="#oqituvchi">O‘qituvchi</a>
+      <a href="#oquvchi">O‘quvchi</a>
+      <a href="#narxlar">Narxlar</a>
+      <a href="#savollar">Savollar</a>
+      <a href="#maxfiy" class="nav__secret"><svg class="ic"><use href="#i-lock"/></svg>Yopiq bo‘lim</a>
+    </nav>
+    <a class="btn btn--primary btn--sm nav__cta" href="#yuklash"><svg class="ic"><use href="#i-download"/></svg><span>Yuklab olish</span></a>
+    <button class="nav__burger" id="burger" aria-label="Menyuni ochish" aria-expanded="false" aria-controls="navLinks"><svg class="ic"><use href="#i-menu"/></svg></button>
+  </div>
+</header>
+
+<main id="main">
+
+<!-- ============================================================ Hero -->
+<section class="hero" id="top">
+  <div class="hero__bg" aria-hidden="true"><span class="orb orb--1"></span><span class="orb orb--2"></span><span class="orb orb--3"></span><span class="grid-lines"></span></div>
+  <div class="container hero__inner">
+    <div class="hero__copy">
+      <a class="pill reveal" href="#ai-vazifa"><span class="pill__dot"></span>Yangi: AI 40 tagacha misolni LaTeX bilan tuzadi <svg class="ic"><use href="#i-arrow"/></svg></a>
+      <h1 class="hero__title reveal">Daftarni suratga oling.<br><span class="grad-text">Qolganini AI tekshiradi.</span></h1>
+      <p class="hero__lead reveal">Mentor AI — o‘qituvchi uchun uy vazifasini tekshiradigan, guruhni tahlil qiladigan va yangi topshiriq tuzadigan aqlli yordamchi. O‘quvchi esa har bir misol bo‘yicha izoh, ball va reytingni darhol ko‘radi.</p>
+      <div class="hero__actions reveal">
+        <a class="btn btn--primary btn--lg" href="#yuklash"><svg class="ic"><use href="#i-download"/></svg>Android uchun yuklab olish<span class="btn__meta" data-bind="arm64Size">30 MB</span></a>
+        <a class="btn btn--ghost btn--lg" href="#qanday"><span>Qanday ishlaydi</span><svg class="ic"><use href="#i-arrow"/></svg></a>
+      </div>
+      <ul class="hero__notes reveal">
+        <li><svg class="ic"><use href="#i-check"/></svg>14 kun bepul</li>
+        <li><svg class="ic"><use href="#i-check"/></svg>Karta talab qilinmaydi</li>
+        <li><svg class="ic"><use href="#i-check"/></svg>O‘zbek tilida</li>
+      </ul>
+    </div>
+
+    <div class="hero__stage" id="heroStage" aria-label="Ilova ko‘rinishi">
+      <div class="hero__phones">
+        <figure class="phone phone--side phone--left" data-depth="0.6"><div class="phone__screen"><img src="assets/screens/student-home.webp" alt="O‘quvchining bosh sahifasi: daraja, XP va reyting" width="600" height="1333"></div></figure>
+        <figure class="phone phone--main" data-depth="1"><div class="phone__screen"><img src="assets/screens/teacher-dashboard.webp" alt="O‘qituvchining bosh sahifasi" width="600" height="1333" fetchpriority="high"></div></figure>
+        <figure class="phone phone--side phone--right" data-depth="0.6"><div class="phone__screen"><img src="assets/screens/student-result.webp" alt="AI tekshirgan ish natijasi va LaTeX formulalar" width="600" height="1333"></div></figure>
+      </div>
+      <div class="float-chip float-chip--a" data-depth="1.6"><span class="chip-ic chip-ic--green"><svg class="ic"><use href="#i-check"/></svg></span><div><b>AI tekshirdi · 5/5</b><small>28 soniyada</small></div></div>
+      <div class="float-chip float-chip--b" data-depth="1.3"><span class="chip-ic chip-ic--amber"><svg class="ic"><use href="#i-flame"/></svg></span><div><b>Eng qiyin mavzu</b><small>Proporsiya — 66%</small></div></div>
+      <div class="float-chip float-chip--c" data-depth="1.8"><span class="tex" data-tex="\frac{3}{4}+\frac{5}{6}=\frac{19}{12}">3/4 + 5/6 = 19/12</span></div>
+      <div class="float-chip float-chip--d" data-depth="1.4"><span class="chip-ic chip-ic--violet"><svg class="ic"><use href="#i-zap"/></svg></span><div><b>+25 XP</b><small>8 kunlik seriya</small></div></div>
+    </div>
+  </div>
+
+  <div class="container">
+    <dl class="metrics reveal">
+      <div class="metric"><dt>≈ <span data-count="30">30</span> s</dt><dd>bitta daftarni AI tekshiradi</dd></div>
+      <div class="metric"><dt><span data-count="40">40</span> ta</dt><dd>misolni AI bir martada tuzadi</dd></div>
+      <div class="metric"><dt><span data-count="4">4</span> xil</dt><dd>vazifa manbai: kitob, rasm, matn, AI</dd></div>
+      <div class="metric" id="metricLive"><dt><span data-count="15">15</span> ta</dt><dd>nishon va 8 xil ustoz jetoni</dd></div>
+    </dl>
+  </div>
+</section>
+
+<!-- ============================================================ Fanlar tasmasi -->
+<div class="marquee" aria-hidden="true">
+  <div class="marquee__track">
+    <span>Matematika</span><i>✦</i><span>Algebra</span><i>✦</i><span>Geometriya</span><i>✦</i><span>Ingliz tili</span><i>✦</i><span>Fizika</span><i>✦</i><span>Kimyo</span><i>✦</i><span>Kasrlar</span><i>✦</i><span>Tenglamalar</span><i>✦</i><span>Foizlar</span><i>✦</i><span>Proporsiya</span><i>✦</i>
+    <span>Matematika</span><i>✦</i><span>Algebra</span><i>✦</i><span>Geometriya</span><i>✦</i><span>Ingliz tili</span><i>✦</i><span>Fizika</span><i>✦</i><span>Kimyo</span><i>✦</i><span>Kasrlar</span><i>✦</i><span>Tenglamalar</span><i>✦</i><span>Foizlar</span><i>✦</i><span>Proporsiya</span><i>✦</i>
+  </div>
+</div>
+
+<!-- ============================================================ Muammo -->
+<section class="section" id="muammo">
+  <div class="container">
+    <header class="section__head reveal">
+      <p class="eyebrow">Muammo</p>
+      <h2 class="section__title">O‘qituvchining vaqti daftarga emas, <span class="grad-text">o‘quvchiga</span> ketishi kerak</h2>
+      <p class="section__lead">30 ta daftarni tekshirish kechqurun bir necha soat oladi. Xato sababi esa ko‘pincha yozilmay qoladi. Mentor AI bu ishni o‘z zimmasiga oladi, qaror esa doim o‘qituvchida qoladi.</p>
+    </header>
+    <div class="compare reveal">
+      <div class="compare__col compare__col--old">
+        <h3><span class="dot dot--muted"></span>Odatdagidek</h3>
+        <ul>
+          <li><svg class="ic"><use href="#i-x"/></svg>30 ta daftar — kechqurun 2–3 soat</li>
+          <li><svg class="ic"><use href="#i-x"/></svg>O‘quvchi faqat bahoni ko‘radi, xato sababini emas</li>
+          <li><svg class="ic"><use href="#i-x"/></svg>Kim qiynalayotgani chorak oxirida bilinadi</li>
+          <li><svg class="ic"><use href="#i-x"/></svg>Yangi misollar tuzish — yana bir kech</li>
+          <li><svg class="ic"><use href="#i-x"/></svg>Hisobot qo‘lda, jadvalma-jadval</li>
+        </ul>
+      </div>
+      <div class="compare__arrow" aria-hidden="true"><svg class="ic"><use href="#i-arrow"/></svg></div>
+      <div class="compare__col compare__col--new">
+        <h3><span class="dot dot--live"></span>Mentor AI bilan</h3>
+        <ul>
+          <li><svg class="ic"><use href="#i-check"/></svg>AI fon rejimida tekshiradi, siz faqat tasdiqlaysiz</li>
+          <li><svg class="ic"><use href="#i-check"/></svg>Har bir misolga izoh: qayerda va nima uchun xato</li>
+          <li><svg class="ic"><use href="#i-check"/></svg>Past natijali o‘quvchilar va qiyin mavzular — darhol</li>
+          <li><svg class="ic"><use href="#i-check"/></svg>“20 ta kasr misoli ber” — AI tayyorlab beradi</li>
+          <li><svg class="ic"><use href="#i-check"/></svg>PDF va Excel hisobot — bitta tugmada</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================ Qanday ishlaydi -->
+<section class="section section--alt" id="qanday">
+  <div class="container">
+    <header class="section__head reveal">
+      <p class="eyebrow">Qanday ishlaydi</p>
+      <h2 class="section__title">To‘rt qadam — va daftar tekshirilgan</h2>
+    </header>
+    <ol class="steps">
+      <li class="step reveal">
+        <span class="step__num">01</span>
+        <div class="step__icons"><span><svg class="ic"><use href="#i-book"/></svg></span><span><svg class="ic"><use href="#i-camera"/></svg></span><span><svg class="ic"><use href="#i-text"/></svg></span><span class="is-ai"><svg class="ic"><use href="#i-spark"/></svg></span></div>
+        <h3>Vazifa bering</h3>
+        <p>Kitob sahifasi, rasm yoki matn yuklang. Yoki mavzuni yozing, AI misollarni o‘zi tuzadi. Javoblarni ham AI oldindan tayyorlaydi, siz ko‘rib tasdiqlaysiz.</p>
+      </li>
+      <li class="step reveal">
+        <span class="step__num">02</span>
+        <div class="step__visual step__visual--snap"><svg class="ic"><use href="#i-camera"/></svg><span class="snap-flash"></span></div>
+        <h3>O‘quvchi topshiradi</h3>
+        <p>O‘quvchi daftarini telefonda suratga olib yuboradi. Bir nechta rasm yoki PDF ham bo‘ladi. Muddat va eslatmalar avtomatik.</p>
+      </li>
+      <li class="step reveal">
+        <span class="step__num">03</span>
+        <div class="step__visual step__visual--scan"><span class="scan-line"></span><span class="scan-row"></span><span class="scan-row"></span><span class="scan-row scan-row--bad"></span><span class="scan-row"></span></div>
+        <h3>AI tekshiradi</h3>
+        <p>Har bir misolni to‘g‘ri javob bilan solishtiradi, ball qo‘yadi va xatoni tushuntiradi. Qo‘lyozma, formulalar va ingliz tili ham tushuniladi.</p>
+      </li>
+      <li class="step reveal">
+        <span class="step__num">04</span>
+        <div class="step__visual step__visual--ok"><svg class="ic"><use href="#i-check"/></svg></div>
+        <h3>Siz tasdiqlaysiz</h3>
+        <p>Bahoni bir tugma bilan tasdiqlaysiz yoki o‘zgartirasiz. O‘quvchi natija, izoh va XP ballni darhol oladi, reyting yangilanadi.</p>
+      </li>
+    </ol>
+  </div>
+</section>
+
+<!-- ============================================================ Imkoniyatlar (bento) -->
+<section class="section" id="imkoniyatlar">
+  <div class="container">
+    <header class="section__head reveal">
+      <p class="eyebrow">Imkoniyatlar</p>
+      <h2 class="section__title">Sinf uchun kerak bo‘lgan hamma narsa — <span class="grad-text">bitta ilovada</span></h2>
+    </header>
+
+    <div class="bento">
+      <article class="card card--xl bento__grade reveal">
+        <div class="card__icon"><svg class="ic"><use href="#i-eye"/></svg></div>
+        <h3>AI tekshiruv</h3>
+        <p>Daftar rasmidagi har bir misol alohida baholanadi. Xato bo‘lsa, AI uni oddiy tilda tushuntiradi.</p>
+        <div class="mock-grade" aria-hidden="true">
+          <div class="mock-grade__row"><span class="ok"><svg class="ic"><use href="#i-check"/></svg></span><b>1-misol</b><em class="tex" data-tex="-15+28=13">−15 + 28 = 13</em><i class="tag tag--ok">To‘g‘ri</i></div>
+          <div class="mock-grade__row"><span class="bad"><svg class="ic"><use href="#i-x"/></svg></span><b>2-misol</b><em>Aralash kasrni noto‘g‘ri kasrga o‘tkazishda xato</em><i class="tag tag--bad">Xato</i></div>
+          <div class="mock-grade__row"><span class="ok"><svg class="ic"><use href="#i-check"/></svg></span><b>3-misol</b><em class="tex" data-tex="(-6)\cdot(-7)-50=-8">(−6)·(−7) − 50 = −8</em><i class="tag tag--ok">To‘g‘ri</i></div>
+          <div class="mock-grade__score"><span class="ring" style="--p:.8"><b>4</b><small>/5</small></span><div><b>AI xulosasi</b><p>Hisoblashda shoshilyapti, yechim yo‘lini yozishga e’tibor bering.</p></div></div>
+        </div>
+      </article>
+
+      <article class="card bento__gen reveal">
+        <div class="card__icon card__icon--violet"><svg class="ic"><use href="#i-spark"/></svg></div>
+        <h3>AI vazifa generatori</h3>
+        <p>Mavzu, soni va qiyinligini tanlang. Formulalar LaTeX bilan chiroyli chiqadi.</p>
+        <div class="mini-tex" aria-hidden="true"><span class="tex" data-tex="2\tfrac{1}{3}+1\tfrac{3}{5}">2 1/3 + 1 3/5</span><span class="tex" data-tex="\frac{9}{10}:\frac{3}{5}">9/10 : 3/5</span></div>
+      </article>
+
+      <article class="card bento__assistant reveal">
+        <div class="card__icon card__icon--sky"><svg class="ic"><use href="#i-chat"/></svg></div>
+        <h3>AI yordamchi</h3>
+        <p>“Qaysi mavzu qiynayapti?” deb so‘rang. Javob faqat guruhingizning haqiqiy ma’lumotlariga asoslanadi.</p>
+        <div class="mini-chat" aria-hidden="true"><span class="me">Oxirgi 3 ishda kim 70% dan past oldi?</span><span class="ai">3 nafar: Jasur, Nodira, Aziz. Asosan <b>Foizlar</b> mavzusida.</span></div>
+      </article>
+
+      <article class="card bento__analytics reveal">
+        <div class="card__icon card__icon--green"><svg class="ic"><use href="#i-trend"/></svg></div>
+        <h3>Guruh tahlili</h3>
+        <p>8 haftalik trend, o‘rtacha natija, eng qiyin mavzu, eng ko‘p xato va e’tibor kerak bo‘lgan o‘quvchilar.</p>
+        <svg class="spark" viewBox="0 0 300 80" preserveAspectRatio="none" aria-hidden="true"><defs><linearGradient id="sparkFill" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#6366F1" stop-opacity=".35"/><stop offset="1" stop-color="#6366F1" stop-opacity="0"/></linearGradient></defs><path class="spark__area" d="M0 58 C30 52 45 60 75 50 S120 40 150 44 S200 30 225 26 S270 30 300 14 L300 80 L0 80Z"/><path class="spark__line" d="M0 58 C30 52 45 60 75 50 S120 40 150 44 S200 30 225 26 S270 30 300 14"/><circle cx="300" cy="14" r="4"/></svg>
+      </article>
+
+      <article class="card bento__report reveal">
+        <div class="card__icon card__icon--amber"><svg class="ic"><use href="#i-file"/></svg></div>
+        <h3>PDF va Excel hisobot</h3>
+        <p>Guruh bo‘yicha oylik yoki umumiy hisobot. Ma’muriyatga yuborish uchun tayyor.</p>
+        <div class="files" aria-hidden="true"><span class="file file--pdf">PDF</span><span class="file file--xls">XLSX</span></div>
+      </article>
+
+      <article class="card bento__game reveal">
+        <div class="card__icon card__icon--rose"><svg class="ic"><use href="#i-trophy"/></svg></div>
+        <h3>Reyting va nishonlar</h3>
+        <p>XP, darajalar, kunlik seriya, guruh reytingi va 15 ta nishon. Bolalarcha emas, jiddiy ko‘rinishda.</p>
+      </article>
+
+      <article class="card bento__jeton reveal">
+        <div class="card__icon card__icon--gold"><svg class="ic"><use href="#i-gift"/></svg></div>
+        <h3>Ustoz jetonlari</h3>
+        <p>O‘qituvchi yaxshi o‘qigan o‘quvchiga shaxsiy tabrik bilan jeton sovg‘a qiladi.</p>
+      </article>
+
+      <article class="card bento__misc reveal">
+        <ul class="ticks">
+          <li><svg class="ic"><use href="#i-clock"/></svg>Muddat, kechikish jarimasi va eslatmalar</li>
+          <li><svg class="ic"><use href="#i-shield"/></svg>Rasmlar faqat egasiga va o‘qituvchiga ko‘rinadi</li>
+          <li><svg class="ic"><use href="#i-help"/></svg>Ilova ichida “Yordam va taklif” bo‘limi</li>
+          <li><svg class="ic"><use href="#i-zap"/></svg>Rasmlar telefonda keshlanadi — tez ochiladi</li>
+        </ul>
+      </article>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================ O'qituvchi ko'rinishi -->
+<section class="section section--alt showcase" id="oqituvchi" data-showcase>
+  <div class="container">
+    <header class="section__head reveal">
+      <p class="eyebrow">O‘qituvchi uchun</p>
+      <h2 class="section__title">Butun sinf <span class="grad-text">bir qarashda</span></h2>
+      <p class="section__lead">Quyidagi ekranlar ilovadan olingan haqiqiy skrinshotlar.</p>
+    </header>
+    <div class="showcase__grid">
+      <div class="showcase__sticky" aria-hidden="true">
+        <figure class="phone phone--show"><div class="phone__screen">
+          <img class="is-active" data-screen="0" src="assets/screens/teacher-dashboard.webp" alt="" width="600" height="1333" loading="lazy">
+          <img data-screen="1" src="assets/screens/teacher-analytics.webp" alt="" width="600" height="1333" loading="lazy">
+          <img data-screen="2" src="assets/screens/teacher-create-ai.webp" alt="" width="600" height="1333" loading="lazy">
+          <img data-screen="3" src="assets/screens/teacher-review-queue.webp" alt="" width="600" height="1333" loading="lazy">
+          <img data-screen="4" src="assets/screens/teacher-review.webp" alt="" width="600" height="1333" loading="lazy">
+          <img data-screen="5" src="assets/screens/teacher-ai-chat.webp" alt="" width="600" height="1333" loading="lazy">
+        </div></figure>
+        <div class="showcase__glow"></div>
+      </div>
+      <ol class="showcase__list">
+        <li class="shot is-active" data-shot="0">
+          <span class="shot__n">01</span>
+          <div><h3>“Bugun” — bosh sahifa</h3><p>O‘quvchilar, faol vazifalar va tekshirish kerak bo‘lgan ishlar. Tezkor amallar: vazifa berish, ishlarni tekshirish, guruhlar, hisobot. Haftalik natija grafigi.</p></div>
+          <figure class="phone phone--inline"><div class="phone__screen"><img src="assets/screens/teacher-dashboard.webp" alt="O‘qituvchining bosh sahifasi" width="600" height="1333" loading="lazy"></div></figure>
+        </li>
+        <li class="shot" data-shot="1">
+          <span class="shot__n">02</span>
+          <div><h3>Guruhlar tahlili</h3><p>Har bir guruh kartasida o‘rtacha foiz, 8 haftalik trend, eng qiyin vazifa, eng ko‘p xato qilingan misol va 60% dan past o‘quvchilar soni. Pastda baholar taqsimoti.</p></div>
+          <figure class="phone phone--inline"><div class="phone__screen"><img src="assets/screens/teacher-analytics.webp" alt="Guruhlar tahlili va baholar taqsimoti" width="600" height="1333" loading="lazy"></div></figure>
+        </li>
+        <li class="shot" data-shot="2">
+          <span class="shot__n">03</span>
+          <div><h3>AI bilan vazifa yaratish</h3><p>Manbani tanlang: kitob, rasm, matn yoki AI. AI rejimida mavzu, misollar soni (5–40) va qiyinlik darajasi kifoya. Kechikish jarimasi ham shu yerda sozlanadi.</p></div>
+          <figure class="phone phone--inline"><div class="phone__screen"><img src="assets/screens/teacher-create-ai.webp" alt="AI bilan vazifa yaratish ekrani" width="600" height="1333" loading="lazy"></div></figure>
+        </li>
+        <li class="shot" data-shot="3">
+          <span class="shot__n">04</span>
+          <div><h3>Tekshirish navbati</h3><p>AI ishonchi past bo‘lgan yoki rasmi xira ishlar alohida ajratiladi. AI sababini ham yozadi, masalan: “3-misolni qo‘lda tekshiring”.</p></div>
+          <figure class="phone phone--inline"><div class="phone__screen"><img src="assets/screens/teacher-review-queue.webp" alt="Tekshirish kerak bo‘lgan ishlar" width="600" height="1333" loading="lazy"></div></figure>
+        </li>
+        <li class="shot" data-shot="4">
+          <span class="shot__n">05</span>
+          <div><h3>Ishni ko‘rib chiqish</h3><p>AI xulosasi, har bir misol natijasi va o‘quvchiga yozilgan izoh. Yakuniy bahoni bir tugma bilan tasdiqlaysiz yoki o‘zgartirasiz.</p></div>
+          <figure class="phone phone--inline"><div class="phone__screen"><img src="assets/screens/teacher-review.webp" alt="AI xulosasi va yakuniy baho" width="600" height="1333" loading="lazy"></div></figure>
+        </li>
+        <li class="shot" data-shot="5">
+          <span class="shot__n">06</span>
+          <div><h3>AI yordamchi</h3><p>Guruh haqida oddiy tilda so‘rang. Yordamchi faqat haqiqiy baholarga tayanadi, formulalarni to‘g‘ri yozadi va kerak bo‘lsa vazifa qoralamasini tayyorlaydi.</p></div>
+          <figure class="phone phone--inline"><div class="phone__screen"><img src="assets/screens/teacher-ai-chat.webp" alt="AI yordamchi bilan suhbat" width="600" height="1333" loading="lazy"></div></figure>
+        </li>
+      </ol>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================ AI vazifa demo -->
+<section class="section" id="ai-vazifa">
+  <div class="container gen">
+    <header class="section__head section__head--left reveal">
+      <p class="eyebrow">AI vazifa generatori</p>
+      <h2 class="section__title">Bitta jumla — <span class="grad-text">tayyor topshiriq</span></h2>
+      <p class="section__lead">O‘qituvchi nima kerakligini yozadi. AI misollarni tuzadi, har biriga javob tayyorlaydi va formulalarni LaTeX bilan chiroyli ko‘rsatadi. Yuborishdan oldin o‘qituvchi hammasini ko‘rib chiqadi.</p>
+      <ul class="ticks ticks--inline">
+        <li><svg class="ic"><use href="#i-check"/></svg>5 dan 40 tagacha misol</li>
+        <li><svg class="ic"><use href="#i-check"/></svg>Oson · O‘rta · Qiyin</li>
+        <li><svg class="ic"><use href="#i-check"/></svg>Javoblar bilan birga</li>
+      </ul>
+    </header>
+
+    <div class="gen__demo reveal" id="genDemo">
+      <div class="gen__window">
+        <div class="gen__bar"><span></span><span></span><span></span><b>AI yordamchi</b></div>
+        <div class="gen__prompt"><span class="gen__avatar">DK</span><p id="genPrompt" data-text="7-B guruhga kasrlar mavzusida o‘rtacha qiyinlikda 6 ta misol ber"></p><span class="caret"></span></div>
+        <div class="gen__meta" id="genMeta"><span class="chip chip--violet"><svg class="ic"><use href="#i-spark"/></svg>Kasrlar</span><span class="chip">6 ta misol</span><span class="chip chip--amber">O‘rta</span></div>
+        <ol class="gen__items" id="genItems">
+          <li><span class="tex" data-tex="\frac{2}{3}+\frac{3}{4}"></span><em class="tex" data-tex="=\frac{17}{12}"></em></li>
+          <li><span class="tex" data-tex="\frac{5}{6}-\frac{1}{4}"></span><em class="tex" data-tex="=\frac{7}{12}"></em></li>
+          <li><span class="tex" data-tex="2\tfrac{1}{3}+1\tfrac{3}{5}"></span><em class="tex" data-tex="=3\tfrac{14}{15}"></em></li>
+          <li><span class="tex" data-tex="\frac{7}{8}\cdot\frac{4}{21}"></span><em class="tex" data-tex="=\frac{1}{6}"></em></li>
+          <li><span class="tex" data-tex="\frac{9}{10}:\frac{3}{5}"></span><em class="tex" data-tex="=\frac{3}{2}"></em></li>
+          <li><span class="tex" data-tex="\left(\frac{1}{2}+\frac{1}{3}\right)\cdot\frac{6}{5}"></span><em class="tex" data-tex="=1"></em></li>
+        </ol>
+        <div class="gen__foot">
+          <label class="switch"><input type="checkbox" id="genAnswers" checked><span class="switch__track"></span>Javoblarni ko‘rsatish</label>
+          <button class="btn btn--ghost btn--sm" id="genReplay" type="button">Qaytadan ko‘rish</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================ O'quvchi ko'rinishi -->
+<section class="section section--alt showcase showcase--flip" id="oquvchi" data-showcase>
+  <div class="container">
+    <header class="section__head reveal">
+      <p class="eyebrow">O‘quvchi uchun</p>
+      <h2 class="section__title">O‘qish — <span class="grad-text">o‘yin emas</span>, lekin shunchalik qiziq</h2>
+      <p class="section__lead">O‘quvchi xatosini tushunadi, o‘sishini ko‘radi va harakati uchun e’tirof oladi.</p>
+    </header>
+    <div class="showcase__grid">
+      <div class="showcase__sticky" aria-hidden="true">
+        <figure class="phone phone--show"><div class="phone__screen">
+          <img class="is-active" data-screen="0" src="assets/screens/student-home.webp" alt="" width="600" height="1333" loading="lazy">
+          <img data-screen="1" src="assets/screens/student-tasks.webp" alt="" width="600" height="1333" loading="lazy">
+          <img data-screen="2" src="assets/screens/student-result.webp" alt="" width="600" height="1333" loading="lazy">
+          <img data-screen="3" src="assets/screens/student-leaderboard.webp" alt="" width="600" height="1333" loading="lazy">
+          <img data-screen="4" src="assets/screens/student-profile.webp" alt="" width="600" height="1333" loading="lazy">
+          <img data-screen="5" src="assets/screens/student-gift.webp" alt="" width="600" height="1333" loading="lazy">
+        </div></figure>
+        <div class="showcase__glow"></div>
+      </div>
+      <ol class="showcase__list">
+        <li class="shot is-active" data-shot="0">
+          <span class="shot__n">01</span>
+          <div><h3>Shaxsiy bosh sahifa</h3><p>Daraja, XP, guruhdagi o‘rin, seriya va o‘rtacha natija. Haftalik maqsad halqasi va eng yaqin muddatgacha qolgan vaqt.</p></div>
+          <figure class="phone phone--inline"><div class="phone__screen"><img src="assets/screens/student-home.webp" alt="O‘quvchining bosh sahifasi" width="600" height="1333" loading="lazy"></div></figure>
+        </li>
+        <li class="shot" data-shot="1">
+          <span class="shot__n">02</span>
+          <div><h3>Vazifalar</h3><p>Topshirish kerak bo‘lganlar va baholanganlar alohida. Muddati yaqinlashsa yoki o‘tib ketsa, rang bilan emas, aniq yozuv bilan ko‘rsatiladi.</p></div>
+          <figure class="phone phone--inline"><div class="phone__screen"><img src="assets/screens/student-tasks.webp" alt="O‘quvchi vazifalari ro‘yxati" width="600" height="1333" loading="lazy"></div></figure>
+        </li>
+        <li class="shot" data-shot="2">
+          <span class="shot__n">03</span>
+          <div><h3>Natija va izoh</h3><p>Misollar LaTeX formulalari bilan, baho, AI izohi va har bir misol bo‘yicha natija. O‘quvchi aynan qayerda xato qilganini ko‘radi.</p></div>
+          <figure class="phone phone--inline"><div class="phone__screen"><img src="assets/screens/student-result.webp" alt="Baholangan ish natijasi" width="600" height="1333" loading="lazy"></div></figure>
+        </li>
+        <li class="shot" data-shot="3">
+          <span class="shot__n">04</span>
+          <div><h3>Guruh reytingi</h3><p>Haftalik va umumiy reyting. XP muddatida topshirish, a’lo natija va seriya uchun beriladi, shuning uchun ko‘chirib yozish foyda bermaydi.</p></div>
+          <figure class="phone phone--inline"><div class="phone__screen"><img src="assets/screens/student-leaderboard.webp" alt="Guruh reytingi" width="600" height="1333" loading="lazy"></div></figure>
+        </li>
+        <li class="shot" data-shot="4">
+          <span class="shot__n">05</span>
+          <div><h3>Yutuqlar</h3><p>15 ta nishon: seriya, a’lo natijalar, fanlar bo‘yicha ustalik. Har birining progressi ko‘rinib turadi.</p></div>
+          <figure class="phone phone--inline"><div class="phone__screen"><img src="assets/screens/student-profile.webp" alt="Profil va yutuqlar" width="600" height="1333" loading="lazy"></div></figure>
+        </li>
+        <li class="shot" data-shot="5">
+          <span class="shot__n">06</span>
+          <div><h3>Ustoz sovg‘asi</h3><p>O‘qituvchi jeton sovg‘a qilsa, o‘quvchi uni tabrik so‘zlari bilan birga oladi. Jeton profilda “Ustoz sovg‘alari” bo‘limida saqlanadi.</p></div>
+          <figure class="phone phone--inline"><div class="phone__screen"><img src="assets/screens/student-gift.webp" alt="Ustozdan sovg‘a qilingan jeton" width="600" height="1333" loading="lazy"></div></figure>
+        </li>
+      </ol>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================ Jetonlar -->
+<section class="section jetons" id="jetonlar">
+  <div class="container">
+    <header class="section__head reveal">
+      <p class="eyebrow eyebrow--gold">Ustoz jetonlari</p>
+      <h2 class="section__title">Eng yaxshi rag‘bat — <span class="grad-gold">ustozning e’tirofi</span></h2>
+      <p class="section__lead">O‘qituvchi jetonlarni bizdan sotib oladi va o‘zi tanlagan o‘quvchiga shaxsiy tabrik bilan sovg‘a qiladi. Jeton o‘quvchi profilida umrbod qoladi.</p>
+    </header>
+    <div class="jeton-grid" id="jetonGrid"></div>
+    <ol class="flow reveal">
+      <li><span class="flow__ic"><svg class="ic"><use href="#i-coins"/></svg></span><div><b>Sotib oladi</b><p>O‘qituvchi ilovadan buyurtma beradi, admin tasdiqlaydi</p></div></li>
+      <li><span class="flow__ic"><svg class="ic"><use href="#i-gift"/></svg></span><div><b>Sovg‘a qiladi</b><p>O‘quvchi profilidan bir tugma va tabrik so‘zi bilan</p></div></li>
+      <li><span class="flow__ic"><svg class="ic"><use href="#i-star"/></svg></span><div><b>O‘quvchi faxrlanadi</b><p>Bosh sahifada xabar, profilda doimiy nishon</p></div></li>
+    </ol>
+  </div>
+</section>
+
+<!-- ============================================================ Narxlar -->
+<section class="section section--alt" id="narxlar">
+  <div class="container">
+    <header class="section__head reveal">
+      <p class="eyebrow">Narxlar</p>
+      <h2 class="section__title">Oddiy va shaffof tariflar</h2>
+      <p class="section__lead">Barcha tariflarda AI tekshiruv, AI vazifa generatori, AI yordamchi, tahlil va hisobotlar to‘liq ishlaydi. Farqi faqat guruh va o‘quvchilar sonida.</p>
+    </header>
+    <div class="pricing" id="pricing">
+      <!-- site.js API'dan to'ldiradi; quyidagisi zaxira -->
+    </div>
+    <p class="pricing__note reveal">O‘quvchilar uchun ilova <b>bepul</b>. To‘lov faqat o‘qituvchi tarifi uchun. 1, 3, 6 yoki 12 oyga olish mumkin.</p>
+  </div>
+</section>
+
+<!-- ============================================================ Yuklab olish -->
+<section class="section download" id="yuklash">
+  <div class="download__bg" aria-hidden="true"><span class="orb orb--1"></span><span class="orb orb--2"></span></div>
+  <div class="container">
+    <header class="section__head reveal">
+      <p class="eyebrow">Yuklab olish</p>
+      <h2 class="section__title">Ilovani hoziroq <span class="grad-text">telefoningizga</span> o‘rnating</h2>
+      <p class="section__lead">Kamerani QR kodga qarating yoki tugmani bosing. <span data-bind="note">Android 7.0 va undan yuqori</span> · Versiya <b data-bind="version">1.1.0</b></p>
+    </header>
+
+    <div class="dl-grid">
+      <article class="dl-card dl-card--main reveal">
+        <div class="dl-card__tag">Tavsiya etiladi</div>
+        <div class="dl-card__body">
+          <div>
+            <h3>Zamonaviy telefonlar</h3>
+            <p>2017-yildan keyin chiqqan deyarli barcha Android telefonlar (64-bit): Samsung, Xiaomi, Redmi, Honor, Vivo va boshqalar.</p>
+            <a class="btn btn--primary btn--lg dl-btn" data-bind-href="arm64Url" href="/downloads/MentorAI-arm64.apk" download><svg class="ic"><use href="#i-download"/></svg>APK yuklab olish<span class="btn__meta" data-bind="arm64Size">30 MB</span></a>
+          </div>
+          <div class="qr" data-qr="arm64Url" aria-label="Yuklab olish uchun QR kod"></div>
+        </div>
+      </article>
+      <article class="dl-card reveal">
+        <div class="dl-card__body">
+          <div>
+            <h3>Eski telefonlar</h3>
+            <p>Zamonaviy versiya o‘rnatilmasa, shu versiyani oling (32-bit protsessorlar uchun).</p>
+            <a class="btn btn--ghost btn--lg dl-btn" data-bind-href="legacyUrl" href="/downloads/MentorAI-eski-telefonlar.apk" download><svg class="ic"><use href="#i-download"/></svg>APK yuklab olish<span class="btn__meta" data-bind="legacySize">26 MB</span></a>
+          </div>
+          <div class="qr qr--sm" data-qr="legacyUrl" aria-label="Eski telefonlar uchun QR kod"></div>
+        </div>
+      </article>
+    </div>
+
+    <ol class="install reveal">
+      <li><span>1</span><div><b>Yuklab oling</b><p>Tugmani bosing yoki QR kodni skanerlang</p></div></li>
+      <li><span>2</span><div><b>Ruxsat bering</b><p>“Noma’lum manbalardan o‘rnatish”ga brauzer uchun ruxsat bering</p></div></li>
+      <li><span>3</span><div><b>O‘rnating</b><p>Faylni oching va “O‘rnatish”ni bosing</p></div></li>
+      <li><span>4</span><div><b>Kiring</b><p>Email orqali ro‘yxatdan o‘ting — 14 kun bepul</p></div></li>
+    </ol>
+  </div>
+</section>
+
+<!-- ============================================================ FAQ -->
+<section class="section" id="savollar">
+  <div class="container container--narrow">
+    <header class="section__head reveal">
+      <p class="eyebrow">Savollar</p>
+      <h2 class="section__title">Ko‘p beriladigan savollar</h2>
+    </header>
+    <div class="faq reveal">
+      <details open><summary>AI xato qilsa-chi?</summary><p>Yakuniy bahoni doim o‘qituvchi tasdiqlaydi. AI ishonchi past bo‘lgan ishlarni (xira rasm, noaniq yozuv) o‘zi “Tekshirish kerak” navbatiga ajratadi va sababini yozadi. O‘qituvchi istalgan bahoni o‘zgartira oladi.</p></details>
+      <details><summary>Qaysi fanlarni tekshira oladi?</summary><p>Hozir eng yaxshi natija matematika (arifmetika, kasrlar, tenglamalar, geometriya) va ingliz tilida. Fizika va kimyo masalalari ham tekshiriladi. Formulalar LaTeX bilan to‘g‘ri ko‘rsatiladi.</p></details>
+      <details><summary>O‘quvchi ko‘chirib yozsa-chi?</summary><p>Bir xil rasm qayta yuborilsa, tizim uni aniqlaydi. XP esa faqat muddatida topshirish va yuqori natija uchun beriladi, shuning uchun ko‘chirishdan foyda yo‘q.</p></details>
+      <details><summary>Ma’lumotlar xavfsizmi?</summary><p>Daftar rasmlari faqat o‘quvchining o‘ziga va uning o‘qituvchisiga ko‘rinadi. Havolalar imzolangan va muddatli. Kunlik zaxira nusxa olinadi.</p></details>
+      <details><summary>Internet sekin bo‘lsa ishlaydimi?</summary><p>Ha. Rasmlar yuborishdan oldin siqiladi, profil rasmlari va skrinshotlar telefonda keshlanadi. AI tekshiruv serverda fon rejimida ishlaydi, o‘quvchi kutib turishi shart emas.</p></details>
+      <details><summary>iPhone uchun bormi?</summary><p>Hozircha Android ilovasi tayyor. iOS versiyasi rejada.</p></details>
+      <details><summary>Qanday to‘lanadi?</summary><p>Ilova ichida tarifni tanlab so‘rov yuborasiz. Admin siz bilan bog‘lanadi va to‘lov tasdiqlangach tarif darhol yoqiladi. Onlayn to‘lov tez orada qo‘shiladi.</p></details>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================ Yopiq bo'lim -->
+<section class="section section--alt secret" id="maxfiy">
+  <div class="container">
+    <header class="section__head reveal">
+      <p class="eyebrow eyebrow--lock"><svg class="ic"><use href="#i-lock"/></svg>Yopiq bo‘lim</p>
+      <h2 class="section__title">Iqtisodiyot: AI qancha turadi va <span class="grad-text">loyiha qanday daromad qiladi</span></h2>
+      <p class="section__lead">Hakamlar va hamkorlar uchun. Raqamlar haqiqiy tekshiruvlarda o‘lchangan token sarfiga asoslangan.</p>
+    </header>
+
+    <div class="secret__lock reveal" id="secretLock">
+      <div class="secret__preview" aria-hidden="true">
+        <div class="sp-row"><i></i><i></i><i></i><i></i></div>
+        <div class="sp-bar"><i style="width:34%"></i><i style="width:8%"></i><i style="width:4%"></i><i style="width:54%"></i></div>
+        <div class="sp-row sp-row--wide"><i></i><i></i></div>
+      </div>
+      <form class="secret__form" id="secretForm" autocomplete="off">
+        <span class="secret__badge"><svg class="ic"><use href="#i-lock"/></svg></span>
+        <h3>Parol bilan himoyalangan</h3>
+        <p id="secretHint">Davom etish uchun parolni kiriting</p>
+        <div class="secret__field">
+          <input type="password" id="secretPassword" placeholder="Parol" aria-label="Parol" required maxlength="200">
+          <button class="btn btn--primary" type="submit" id="secretBtn"><svg class="ic"><use href="#i-unlock"/></svg>Ochish</button>
+        </div>
+        <p class="secret__error" id="secretError" role="alert"></p>
+      </form>
+    </div>
+
+    <div class="secret__body" id="secretBody" hidden>
+      <div class="kpis" id="unitKpis"></div>
+
+      <div class="calc">
+        <div class="calc__controls">
+          <h3>Hisob-kitob parametrlari</h3>
+          <div class="field">
+            <span class="field__label">Tarif</span>
+            <div class="seg" id="calcPlan" role="radiogroup" aria-label="Tarif"></div>
+          </div>
+          <div class="field">
+            <span class="field__label">AI narxi</span>
+            <div class="seg" id="calcMode" role="radiogroup" aria-label="AI narxi">
+              <button type="button" role="radio" aria-checked="true" data-v="now">Hozirgi</button>
+              <button type="button" role="radio" aria-checked="false" data-v="2027">2027-yildan (×2)</button>
+            </div>
+          </div>
+          <label class="field"><span class="field__label">O‘quvchilar soni <output id="oStudents"></output></span><input type="range" id="calcStudents" min="1" max="90" value="30"></label>
+          <label class="field"><span class="field__label">Haftasiga vazifa (har guruhga) <output id="oWeekly"></output></span><input type="range" id="calcWeekly" min="1" max="7" value="2"></label>
+          <label class="field"><span class="field__label">Topshirish ulushi <output id="oSubmit"></output></span><input type="range" id="calcSubmit" min="30" max="100" value="85"></label>
+          <label class="field"><span class="field__label">To‘lovchi o‘qituvchilar <output id="oTeachers"></output></span><input type="range" id="calcTeachers" min="10" max="2000" step="10" value="50"></label>
+        </div>
+
+        <div class="calc__result">
+          <p class="calc__label">Bir o‘qituvchidan oylik sof foyda</p>
+          <p class="calc__big" id="rProfit">—</p>
+          <p class="calc__sub" id="rMargin"></p>
+          <div class="split" id="rSplit" role="img"></div>
+          <ul class="legend" id="rLegend"></ul>
+          <div class="totals" id="rTotals"></div>
+        </div>
+      </div>
+
+      <div class="scen">
+        <h3>Ssenariylar — tarif to‘liq band bo‘lganda</h3>
+        <div class="table-wrap"><table class="table" id="scenTable"></table></div>
+      </div>
+
+      <div class="assump">
+        <h3>Qabul qilingan qiymatlar</h3>
+        <dl id="assumpList"></dl>
+        <p class="assump__note" id="assumpNote"></p>
+      </div>
+
+      <div class="secret__actions">
+        <a class="btn btn--ghost btn--sm" href="/admin" target="_blank" rel="noopener"><svg class="ic"><use href="#i-settings"/></svg>Admin paneldan tahrirlash</a>
+        <button class="btn btn--ghost btn--sm" type="button" id="secretClose"><svg class="ic"><use href="#i-lock"/></svg>Qulflash</button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================ Yakuniy CTA -->
+<section class="cta">
+  <div class="container cta__inner reveal">
+    <img class="cta__mark" src="assets/img/mark.png" alt="" width="96" height="65" loading="lazy">
+    <h2>Bugun kechqurun daftar tekshirmang.</h2>
+    <p>Mentor AI’ni o‘rnating, birinchi vazifani bering va natijani ertaga ko‘ring.</p>
+    <div class="hero__actions">
+      <a class="btn btn--primary btn--lg" href="#yuklash"><svg class="ic"><use href="#i-download"/></svg>Bepul boshlash</a>
+      <a class="btn btn--ghost btn--lg" href="#narxlar">Narxlarni ko‘rish</a>
+    </div>
+  </div>
+</section>
+
+</main>
+
+<footer class="footer">
+  <div class="container footer__inner">
+    <div class="footer__brand">
+      <a class="brand" href="#top"><span class="brand__mark"><img src="assets/img/mark.png" alt="" width="34" height="23" loading="lazy"></span><span class="brand__name">Mentor<b>AI</b></span></a>
+      <p>Uy vazifasini AI tekshiradi, o‘qituvchi esa o‘quvchiga vaqt ajratadi.</p>
+    </div>
+    <nav class="footer__cols" aria-label="Pastki menyu">
+      <div><h4>Mahsulot</h4><a href="#imkoniyatlar">Imkoniyatlar</a><a href="#oqituvchi">O‘qituvchi</a><a href="#oquvchi">O‘quvchi</a><a href="#narxlar">Narxlar</a></div>
+      <div><h4>Yordam</h4><a href="#yuklash">Yuklab olish</a><a href="#savollar">Savollar</a><span>Ilovada: Sozlamalar → Yordam va taklif</span></div>
+      <div><h4>Jamoa</h4><a href="#maxfiy">Yopiq bo‘lim</a><a href="/admin" target="_blank" rel="noopener">Boshqaruv paneli</a></div>
+    </nav>
+  </div>
+  <div class="container footer__bottom"><span>© <span id="year">2026</span> Mentor AI</span><span>O‘zbekistonda ishlab chiqilgan</span></div>
+</footer>
+
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js" defer></script>
+<script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js" defer></script>
+<script src="assets/js/site.js" defer></script>
+</body>
+</html>
