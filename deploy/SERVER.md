@@ -24,6 +24,15 @@ Serverda boshqa loyihalar ham ishlaydi (nginx saytlari, gunicorn :8000) — ular
 Yuklama testi (2026-09-28, 3000 foydalanuvchilik realistik ma'lumot, tashqaridan nginx orqali):
 ~114 so'rov/soniya, 300 parallel foydalanuvchida xatosiz. Bunda cheklov — serverning 2 ta CPU'si.
 
+## Taqdimot sayti va APK
+- Sayt: `websayt/` papkasi (git bilan keladi). nginx `/` va `/assets/` ni to'g'ridan-to'g'ri diskdan beradi,
+  qolgan hamma yo'l (`/api/v1`, `/admin`, `/media`) backendga o'tadi. Sayt yangilanishi uchun `update.sh` kifoya.
+- APK: `/home/root/mentorAI/data/downloads/` → `https://.../downloads/MentorAI-arm64.apk` va
+  `MentorAI-eski-telefonlar.apk`. Yangi versiyani shu papkaga shu nomlar bilan yuklang, keyin
+  admin panel → 🌐 Sayt bo'limida versiya va hajmni yangilang.
+- Yopiq (iqtisodiyot) bo'lim paroli, AI narxlari va token sarfi — admin panel → 🌐 Sayt.
+- Lokal ko'rish: backendni `SITE_DIR=D:/mentor_AI/websayt` bilan ishga tushirib `http://127.0.0.1:<port>/` ni oching.
+
 ## Yangilash
 ```bash
 bash /home/root/mentorAI/deploy/update.sh
