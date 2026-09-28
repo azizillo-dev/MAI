@@ -17,7 +17,16 @@ import anthropic
 import httpx
 
 from app.ai import prompts
-from app.ai.schemas import ExtractedItem, ExtractedItems, GradedItem, GradeResult, Rubric, RubricCriterion
+from app.ai.schemas import (
+    ExtractedItem,
+    ExtractedItems,
+    GeneratedItem,
+    GeneratedSet,
+    GradedItem,
+    GradeResult,
+    Rubric,
+    RubricCriterion,
+)
 from app.core.config import get_settings
 
 
@@ -69,6 +78,10 @@ class AiProvider(Protocol):
     async def extract_from_images(self, images: list[Image], subject: str) -> tuple[ExtractedItems, Usage]: ...
 
     async def build_rubric(self, title: str, instructions: str, subject: str) -> tuple[Rubric, Usage]: ...
+
+    async def generate_problems(
+        self, topic: str, count: int, difficulty: str, subject: str, wishes: str | None, teacher_context: str
+    ) -> tuple[GeneratedSet, Usage]: ...
 
     async def grade(
         self, ctx: GradingContext, work: list[Image], text_answer: str | None
@@ -140,6 +153,14 @@ class AnthropicProvider:
         content = [*(_image_block(i) for i in images), {"type": "text", "text": prompts.extract_request(subject, None)}]
         return await self._parse(
             system=[{"type": "text", "text": prompts.EXTRACT_SYSTEM}], content=content, output_format=ExtractedItems, effort="high"
+        )
+
+    async def generate_problems(self, topic, count, difficulty, subject, wishes, teacher_context):
+        content = [{"type": "text", "text": prompts.generate_request(topic, count, difficulty, subject, wishes,
+                                                                      teacher_context)}]
+        return await self._parse(
+            system=[{"type": "text", "text": prompts.GENERATE_SYSTEM}], content=content, output_format=GeneratedSet,
+            effort="medium",
         )
 
     async def build_rubric(self, title, instructions, subject):
@@ -279,6 +300,14 @@ class GeminiProvider:
         parts = [*(self._image(i) for i in images), prompts.extract_request(subject, None)]
         return await self._generate(system=prompts.EXTRACT_SYSTEM, parts=parts, schema=ExtractedItems)
 
+    async def generate_problems(self, topic, count, difficulty, subject, wishes, teacher_context):
+        # Javoblar to'g'riligi uchun fikrlash yoqilgan (vazifa yaratish kam bo'ladi, xarajati kichik)
+        return await self._generate(
+            system=prompts.GENERATE_SYSTEM,
+            parts=[prompts.generate_request(topic, count, difficulty, subject, wishes, teacher_context)],
+            schema=GeneratedSet,
+        )
+
     async def build_rubric(self, title, instructions, subject):
         return await self._generate(
             system=prompts.RUBRIC_SYSTEM,
@@ -303,6 +332,11 @@ class FakeProvider:
         numbers = _expand_hint(problems_hint) or ["1", "2", "3"]
         items = [ExtractedItem(number=n, text=f"{n}-misol sharti (namuna)", answer=None) for n in numbers[:30]]
         return ExtractedItems(items=items, notes="Namuna rejimi: haqiqiy AI ulanmagan"), self._usage()
+
+    async def generate_problems(self, topic, count, difficulty, subject, wishes, teacher_context):
+        items = [GeneratedItem(number=str(i), text=f"Hisoblang: $\\frac{{{i}}}{{2}} + \\frac{{1}}{{4}}$",
+                               answer=f"$\\frac{{{2 * i + 1}}}{{4}}$") for i in range(1, count + 1)]
+        return GeneratedSet(items=items, notes=None), self._usage()
 
     async def extract_from_images(self, images, subject):
         items = [ExtractedItem(number=str(i + 1), text=f"Rasmdagi {i + 1}-misol (namuna)", answer=None) for i in range(3)]

@@ -18,19 +18,22 @@ from app.core.errors import AppError, Forbidden, NotFound, Unauthorized
 from app.core.security import utcnow, verify_password
 from app.models import (
     AiRun,
+    GiftJeton,
     Group,
     GroupMember,
     GroupStatus,
+    JetonOrder,
     MemberStatus,
     Plan,
     PlanRequest,
     Role,
     Submission,
+    SupportMessage,
     User,
 )
 from app.schemas.auth import TokensOut
 from app.schemas.common import Schema
-from app.services import plans, sessions
+from app.services import jetons, plans, sessions, site
 from app.services.assignments import TASHKENT
 
 router = APIRouter(prefix="/admin", tags=["admin"])
@@ -93,6 +96,9 @@ async def stats(admin: CurrentAdmin, db: DB) -> dict:
         "groups": await db.scalar(select(func.count()).select_from(Group).where(Group.status == GroupStatus.ACTIVE)),
         "subscriptions": by_status,
         "pending_requests": await db.scalar(select(func.count()).select_from(PlanRequest).where(PlanRequest.status == "pending")),
+        "support_open": await db.scalar(select(func.count()).select_from(SupportMessage).where(SupportMessage.status == "open")),
+        "jeton_orders_pending": await db.scalar(
+            select(func.count()).select_from(JetonOrder).where(JetonOrder.status == "pending")),
         "revenue_month": int(revenue_month),
         "revenue_total": int(revenue_total),
         "revenue_by_month": months,
@@ -251,3 +257,122 @@ async def list_groups(admin: CurrentAdmin, db: DB) -> list[dict]:
         out.append({"id": g.id, "name": g.name, "subject": g.subject, "teacher": g.teacher.full_name,
                     "students": students, "created_at": g.created_at})
     return out
+
+
+# ---------------------------------------------------------------- Murojaatlar (yordam va taklif)
+
+
+def _support(m: SupportMessage) -> dict:
+    u = m.user
+    return {"id": m.id, "kind": m.kind, "text": m.text, "status": m.status, "admin_reply": m.admin_reply,
+            "replied_at": m.replied_at, "created_at": m.created_at,
+            "user": {"id": u.id, "full_name": u.full_name, "role": u.role, "email": u.email, "phone": u.phone}}
+
+
+@router.get("/support")
+async def list_support(admin: CurrentAdmin, db: DB,
+                       status: Literal["open", "answered", "closed", "all"] = "open") -> list[dict]:
+    q = select(SupportMessage).order_by(SupportMessage.created_at.desc()).limit(200)
+    if status != "all":
+        q = q.where(SupportMessage.status == status)
+    return [_support(m) for m in await db.scalars(q)]
+
+
+class SupportReplyIn(Schema):
+    reply: str | None = Field(default=None, max_length=3000)
+    close: bool = False
+
+
+@router.post("/support/{message_id}/reply")
+async def reply_support(message_id: uuid.UUID, body: SupportReplyIn, admin: CurrentAdmin, db: DB) -> dict:
+    m = await db.get(SupportMessage, message_id)
+    if m is None:
+        raise NotFound("MESSAGE_NOT_FOUND", "Murojaat topilmadi")
+    if body.reply and body.reply.strip():
+        m.admin_reply = body.reply.strip()
+        m.replied_at = utcnow()
+        m.status = "answered"
+    if body.close:
+        m.status = "closed"
+    await db.commit()
+    await db.refresh(m)
+    return _support(m)
+
+
+# ---------------------------------------------------------------- Jetonlar (katalog va buyurtmalar)
+
+
+def _order(o: JetonOrder) -> dict:
+    return {"id": o.id, "jeton_code": o.jeton_code, "quantity": o.quantity, "amount_uzs": o.amount_uzs,
+            "status": o.status, "teacher_note": o.teacher_note, "admin_note": o.admin_note,
+            "created_at": o.created_at, "decided_at": o.decided_at,
+            "teacher": {"id": o.teacher.id, "full_name": o.teacher.full_name, "email": o.teacher.email,
+                        "phone": o.teacher.phone}}
+
+
+@router.get("/jeton-orders")
+async def list_jeton_orders(admin: CurrentAdmin, db: DB,
+                            status: Literal["pending", "approved", "rejected", "all"] = "pending") -> list[dict]:
+    q = select(JetonOrder).order_by(JetonOrder.created_at.desc()).limit(200)
+    if status != "all":
+        q = q.where(JetonOrder.status == status)
+    return [_order(o) for o in await db.scalars(q)]
+
+
+@router.post("/jeton-orders/{order_id}/{action}")
+async def decide_jeton_order(order_id: uuid.UUID, action: Literal["approve", "reject"], body: DecisionIn,
+                             admin: CurrentAdmin, db: DB) -> dict:
+    return _order(await jetons.decide_order(db, order_id, action == "approve", body.note))
+
+
+@router.get("/jetons")
+async def list_jetons(admin: CurrentAdmin, db: DB) -> list[dict]:
+    return [jetons.jeton_dict(j) for j in await jetons.catalog(db, active_only=False)]
+
+
+class JetonUpdateIn(Schema):
+    name: str | None = Field(default=None, min_length=2, max_length=64)
+    description: str | None = Field(default=None, max_length=255)
+    price_uzs: int | None = Field(default=None, ge=0, le=10_000_000)
+    is_active: bool | None = None
+
+
+@router.patch("/jetons/{code}")
+async def update_jeton(code: str, body: JetonUpdateIn, admin: CurrentAdmin, db: DB) -> dict:
+    j = await db.scalar(select(GiftJeton).where(GiftJeton.code == code))
+    if j is None:
+        raise NotFound("JETON_NOT_FOUND", "Jeton topilmadi")
+    for field, value in body.model_dump(exclude_unset=True, exclude_none=True).items():
+        setattr(j, field, value)
+    await db.commit()
+    await db.refresh(j)
+    return jetons.jeton_dict(j)
+
+
+# ---------------------------------------------------------------- Taqdimot sayti
+
+
+@router.get("/site")
+async def get_site(admin: CurrentAdmin, db: DB) -> dict:
+    return {"economics": await site.economics(db), "downloads": await site.downloads(db),
+            "secret_enabled": await site.has_secret_password(db)}
+
+
+@router.put("/site/economics")
+async def put_economics(body: dict, admin: CurrentAdmin, db: DB) -> dict:
+    return await site.set_economics(db, body)
+
+
+@router.put("/site/downloads")
+async def put_downloads(body: dict, admin: CurrentAdmin, db: DB) -> dict:
+    return await site.set_downloads(db, body)
+
+
+class SecretPasswordIn(Schema):
+    password: str = Field(min_length=6, max_length=200)
+
+
+@router.put("/site/secret-password")
+async def put_secret_password(body: SecretPasswordIn, admin: CurrentAdmin, db: DB) -> dict:
+    await site.set_secret_password(db, body.password)
+    return {"secret_enabled": True}

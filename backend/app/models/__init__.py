@@ -10,6 +10,7 @@ from app.models.assignment import (
     SubmissionStatus,
 )
 from app.models.base import Base
+from app.models.extras import GiftJeton, JetonLedger, JetonOrder, SiteSetting, SupportMessage
 from app.models.gamification import BadgeAward, XpEvent
 from app.models.billing import Plan, PlanRequest, Subscription
 from app.models.group import Group, GroupMember, GroupStatus, JoinAttempt, MemberStatus, Subject
@@ -30,17 +31,22 @@ __all__ = [
     "Base",
     "Group",
     "GroupMember",
+    "GiftJeton",
     "GroupStatus",
+    "JetonLedger",
+    "JetonOrder",
     "JoinAttempt",
     "MemberStatus",
     "OtpCode",
     "Plan",
     "PlanRequest",
     "ProfileEditGrant",
+    "SiteSetting",
     "Role",
     "StudentProfile",
     "Subject",
     "Subscription",
+    "SupportMessage",
     "TeacherProfile",
     "User",
     "XpEvent",

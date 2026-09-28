@@ -1,8 +1,10 @@
+import asyncio
 import uuid
 from datetime import timedelta
 from typing import Literal
 
 from fastapi import APIRouter, Query
+from fastapi.responses import Response
 from sqlalchemy import select
 from sqlalchemy.orm import noload
 from sqlalchemy.orm.attributes import set_committed_value
@@ -26,7 +28,7 @@ from app.schemas.groups import (
     TeacherGroupOut,
 )
 from app.services import groups as svc
-from app.services import plans
+from app.services import plans, reports
 
 router = APIRouter(tags=["groups"])
 
@@ -230,3 +232,26 @@ async def leave_group(group_id: uuid.UUID, student: CurrentStudent, db: DB) -> M
     member.decided_at = utcnow()
     await db.commit()
     return Message()
+
+
+# ---------------------------------------------------------------- Hisobot (Excel / PDF)
+
+
+@router.get("/groups/{group_id}/report.{fmt}")
+async def group_report_file(
+    group_id: uuid.UUID,
+    fmt: Literal["xlsx", "pdf"],
+    teacher: CurrentTeacher,
+    db: DB,
+    period: Literal["month", "all"] = Query("month"),
+) -> Response:
+    group = await svc.get_teacher_group(db, teacher, group_id)
+    data = await reports.group_report_data(db, group, period)
+    # Fayl yaratish CPU talab qiladi: server boshqa so'rovlarga javob berishda davom etadi
+    content = await asyncio.to_thread(reports.build_xlsx if fmt == "xlsx" else reports.build_pdf, data)
+    media = ("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" if fmt == "xlsx"
+             else "application/pdf")
+    name = reports.filename(data, fmt)
+    return Response(content, media_type=media, headers={
+        "Content-Disposition": f"attachment; filename=\"{name.encode('ascii', 'ignore').decode() or 'hisobot.' + fmt}\"",
+    })

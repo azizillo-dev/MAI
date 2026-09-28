@@ -19,6 +19,7 @@ from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine  # no
 from app.db import session as db_session  # noqa: E402
 from app.main import create_app  # noqa: E402
 from app.models import Base  # noqa: E402
+from app.services.jetons import seed_jetons  # noqa: E402
 from app.services.plans import seed_plans  # noqa: E402
 
 
@@ -41,6 +42,7 @@ async def client(tmp_path):
         await conn.run_sync(Base.metadata.create_all)
     async with db_session._sessionmaker() as db:
         await seed_plans(db)
+        await seed_jetons(db)
 
     app = create_app()
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:

@@ -421,3 +421,35 @@ async def test_student_task_list_is_bounded_to_latest(client, monkeypatch):
     lst = (await client.get("/api/v1/student/assignments", headers=s)).json()
     # Eng so'nggi ikkitasi, muddati bo'yicha o'sish tartibida
     assert [a["id"] for a in lst] == ids[1:]
+
+
+async def test_ai_generated_assignment(client):
+    t, g, (s,) = await _setup(client, 1)
+    due = (datetime.now(UTC) + timedelta(days=2)).isoformat()
+    form = {"group_id": g["id"], "title": "Kasrlarni qo'shish", "source_type": "ai", "due_at": due,
+            "ai_count": "20", "ai_difficulty": "medium", "instructions": "Aralash kasrlar ham bo'lsin"}
+    r = await client.post("/api/v1/assignments", headers=t, data=form)
+    assert r.status_code == 201, r.text
+    await jobs.drain()
+    a = (await client.get(f"/api/v1/assignments/{r.json()['id']}", headers=t)).json()
+    assert a["status"] == "review" and len(a["items"]) == 20
+    assert a["ai_params"] == {"topic": "Kasrlarni qo'shish", "count": 20, "difficulty": "medium"}
+    assert r"\frac" in a["items"][0]["text"] and a["items"][0]["answer"]
+
+    bad = await client.post("/api/v1/assignments", headers=t, data={**form, "ai_count": "0"})
+    assert bad.status_code == 422
+    bad = await client.post("/api/v1/assignments", headers=t, data={**form, "ai_count": "41"})
+    assert bad.status_code == 422 and bad.json()["error"]["code"] == "AI_COUNT_INVALID"
+
+
+async def test_dashboard_group_analytics(client):
+    t, g, (s1, s2) = await _setup(client, 2)
+    a = await _published(client, t, g)
+    await _submit(client, s1, a)
+    await _submit(client, s2, a, color=(200, 40, 40))
+    await jobs.drain()
+    d = (await client.get("/api/v1/teachers/me/dashboard", headers=t)).json()["analytics"]
+    grp = d["groups"][0]
+    assert grp["students"] == 2 and grp["checked"] == 2 and grp["avg_percent"] == 80.0
+    assert grp["hardest_assignment"]["avg_percent"] == 80.0 and len(grp["weekly"]) == 8
+    assert grp["weekly"][-1]["works"] == 2 and sum(d["distribution"].values()) == 2

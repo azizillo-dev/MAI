@@ -65,10 +65,10 @@ async def test_plan_request_approved_by_admin(client):
     t = await make_teacher(client)
     plans = (await client.get("/api/v1/teachers/plans", headers=t)).json()["plans"]
     assert [(p["code"], p["price_uzs"], p["max_groups"], p["max_students"]) for p in plans] == [
-        ("standard", 20000, 1, 30), ("pro", 70000, 3, 90)]
+        ("standard", 149000, 1, 30), ("pro", 399000, 3, 90)]
 
     r = await client.post("/api/v1/teachers/me/plan-requests", headers=t, json={"plan_code": "pro", "months": 2})
-    assert r.status_code == 201 and r.json()["amount_uzs"] == 140000
+    assert r.status_code == 201 and r.json()["amount_uzs"] == 2 * 399000
     dup = await client.post("/api/v1/teachers/me/plan-requests", headers=t, json={"plan_code": "standard", "months": 1})
     assert dup.status_code == 409
 
@@ -81,7 +81,7 @@ async def test_plan_request_approved_by_admin(client):
     plan = (await client.get("/api/v1/teachers/me/plan", headers=t)).json()
     assert plan["plan"]["code"] == "pro" and plan["status"] == "active" and plan["days_left"] >= 59
     stats = (await client.get("/api/v1/admin/stats", headers=a)).json()
-    assert stats["revenue_month"] == 140000 and stats["subscriptions"]["active"] == 1
+    assert stats["revenue_month"] == 2 * 399000 and stats["subscriptions"]["active"] == 1
     # Pro'da 3 guruh ochiladi
     for i in range(3):
         assert (await client.post("/api/v1/groups", json={"name": f"G{i}", "subject": "math"}, headers=t)).status_code == 201

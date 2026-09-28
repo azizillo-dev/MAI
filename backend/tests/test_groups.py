@@ -253,3 +253,28 @@ async def test_rejected_student_can_request_again(client):
     assert (await client.get("/api/v1/memberships", headers=s)).json() == []
     r = await client.post("/api/v1/memberships", json=body, headers=s)
     assert r.status_code == 201 and r.json()["status"] == "pending"
+
+
+async def test_group_report_xlsx_and_pdf(client):
+    import io
+
+    from openpyxl import load_workbook
+
+    from app.services import jobs
+    from tests.test_assignments import _published, _setup, _submit
+
+    t, g, (s,) = await _setup(client, 1)
+    a = await _published(client, t, g)
+    await _submit(client, s, a)
+    await jobs.drain()
+
+    r = await client.get(f"/api/v1/groups/{g['id']}/report.xlsx", headers=t)
+    assert r.status_code == 200 and "attachment" in r.headers["content-disposition"]
+    ws = load_workbook(io.BytesIO(r.content))["O'quvchilar"]
+    assert ws["A5"].value == "Ali Valiyev" and ws["E5"].value == 80.0
+
+    r = await client.get(f"/api/v1/groups/{g['id']}/report.pdf?period=all", headers=t)
+    assert r.status_code == 200 and r.content.startswith(b"%PDF")
+
+    other = await make_teacher(client)
+    assert (await client.get(f"/api/v1/groups/{g['id']}/report.pdf", headers=other)).status_code == 404

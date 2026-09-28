@@ -18,6 +18,7 @@ from app.models import (
     SubmissionStatus,
     User,
 )
+from app.services.analytics import teacher_analytics
 from app.services.assignments import TASHKENT, week_start_utc
 
 
@@ -138,6 +139,7 @@ async def teacher_dashboard(db: AsyncSession, teacher_id: uuid.UUID) -> dict:
     )).all()
 
     return {
+        "analytics": await teacher_analytics(db, teacher_id),
         "stats": {
             "groups": groups,
             "students": students,

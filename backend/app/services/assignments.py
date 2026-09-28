@@ -132,6 +132,7 @@ async def create_assignment(
     page_to: int | None = None,
     problems: str | None = None,
     images: list[bytes] | None = None,
+    ai_params: dict | None = None,
 ) -> Assignment:
     s = get_settings()
     group = await db.get(Group, group_id)
@@ -184,6 +185,15 @@ async def create_assignment(
     elif source_type == SourceType.TEXT:
         if not instructions or len(instructions.strip()) < 10:
             raise AppError("INSTRUCTIONS_REQUIRED", "Topshiriqni batafsilroq yozing (kamida 10 belgi)", 422)
+    elif source_type == SourceType.AI:
+        p = ai_params or {}
+        count, difficulty = p.get("count"), p.get("difficulty")
+        if not isinstance(count, int) or not 1 <= count <= s.ai_generate_max_items:
+            raise AppError("AI_COUNT_INVALID", f"Misollar soni 1 dan {s.ai_generate_max_items} gacha bo'lsin", 422)
+        if difficulty not in ("easy", "medium", "hard"):
+            raise AppError("AI_DIFFICULTY_INVALID", "Qiyinlikni tanlang", 422)
+        assignment.ai_params = {"topic": (p.get("topic") or title).strip()[:200], "count": count,
+                                "difficulty": difficulty}
     else:
         raise AppError("SOURCE_INVALID", "Noma'lum vazifa turi", 422)
 
@@ -261,6 +271,9 @@ async def prepare_assignment(assignment_id: uuid.UUID) -> None:
             return
         source_type, subject, teacher_id = a.source_type, a.group.subject, a.teacher_id
         title, instructions, problems = a.title, a.instructions or "", a.problems
+        ai_params = a.ai_params or {}
+        teacher = await db.get(User, a.teacher_id)
+        teacher_context = (teacher.teacher.ai_context if teacher and teacher.teacher else "") or ""
         book = None
         if a.book is not None:
             book = (a.book.file_key, a.page_from + a.book.page_offset - 1, a.page_to + a.book.page_offset - 1)
@@ -277,6 +290,13 @@ async def prepare_assignment(assignment_id: uuid.UUID) -> None:
             pdf = await asyncio.to_thread(slice_pdf, await storage.aread(book[0]), book[1], book[2])
             result, usage = await provider.extract_from_pdf(pdf, subject, problems)
             items, notes = [i.model_dump() for i in result.items], result.notes
+        elif source_type == SourceType.AI:
+            result, usage = await provider.generate_problems(
+                ai_params.get("topic") or title, int(ai_params.get("count") or 10),
+                ai_params.get("difficulty") or "medium", subject, instructions or None, teacher_context,
+            )
+            items = [i.model_dump() for i in result.items][: int(ai_params.get("count") or 10)]
+            notes = result.notes
         elif source_type == SourceType.IMAGES:
             images = [Image(await storage.aread(key), mime) for key, mime in image_files]
             result, usage = await provider.extract_from_images(images, subject)

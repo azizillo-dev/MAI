@@ -78,6 +78,8 @@ class Settings(BaseSettings):
     stats_cache_seconds: float = 30
     # O'quvchining vazifalar ro'yxati: eng so'nggi shuncha vazifa (bir chorakdan ko'p)
     student_tasks_limit: int = 60
+    # AI bir vazifaga ko'pi bilan shuncha misol yaratadi
+    ai_generate_max_items: int = 40
     # AI limiti tugasa fon vazifasi navbatda kutadi: 30s, 1m, 2m ... 10 daqiqagacha, jami ~1.5 soat
     ai_retry_base_seconds: float = 30
     ai_retry_max_delay_seconds: float = 600

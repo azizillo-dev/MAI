@@ -29,6 +29,7 @@ class SourceType(enum.StrEnum):
     BOOK = "book"  # PDF kitob + sahifa/misol oralig'i
     IMAGES = "images"  # misollar rasmi
     TEXT = "text"  # matnli topshiriq (krossvord, insho...)
+    AI = "ai"  # misollarni AI yaratadi (mavzu, soni, qiyinligi bo'yicha)
 
 
 class AssignmentStatus(enum.StrEnum):
@@ -50,6 +51,8 @@ class Assignment(UUIDPk, Timestamps, Base):
     book_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("books.id", ondelete="SET NULL"))
     page_from: Mapped[int | None] = mapped_column(Integer)  # kitobdagi (bosma) raqam
     page_to: Mapped[int | None] = mapped_column(Integer)
+    # AI yaratadigan vazifa uchun: {"topic", "count", "difficulty"}
+    ai_params: Mapped[dict[str, Any] | None] = mapped_column(JSON)
     problems: Mapped[str | None] = mapped_column(String(120))  # "56-78" yoki "3, 5, 7-10"
 
     # AI ajratgan va ustoz tasdiqlagan misollar: [{"number": "56", "text": "...", "answer": "..."}]

@@ -58,6 +58,7 @@ class AssignmentOut(Schema):
     title: str
     instructions: str | None
     source_type: str
+    ai_params: dict | None = None
     book: BookOut | None
     page_from: int | None
     page_to: int | None

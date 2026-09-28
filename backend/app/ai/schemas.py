@@ -16,6 +16,17 @@ class ExtractedItems(BaseModel):
     notes: str | None = Field(description="Ustozga eslatma: o'qib bo'lmagan joylar, topilmagan raqamlar va h.k.")
 
 
+class GeneratedItem(BaseModel):
+    number: str = Field(description="Tartib raqami: '1', '2', ...")
+    text: str = Field(description="Misol sharti. Matematik ifodalar LaTeX'da, $...$ ichida")
+    answer: str = Field(description="Aniq to'g'ri javob (matematikada LaTeX, $...$ ichida)")
+
+
+class GeneratedSet(BaseModel):
+    items: list[GeneratedItem]
+    notes: str | None = Field(description="Ustozga qisqa eslatma (o'zbekcha) yoki null")
+
+
 class RubricCriterion(BaseModel):
     name: str
     weight: int = Field(description="Foiz; barcha mezonlar yig'indisi 100")

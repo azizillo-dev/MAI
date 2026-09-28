@@ -63,6 +63,7 @@ def assignment_out(a: Assignment, stats: SubmissionStats | None = None) -> Assig
         title=a.title,
         instructions=a.instructions,
         source_type=a.source_type,
+        ai_params=a.ai_params,
         book=book_out(a.book) if a.book else None,
         page_from=a.page_from,
         page_to=a.page_to,
@@ -194,7 +195,7 @@ async def create_assignment(
     db: DB,
     group_id: Annotated[uuid.UUID, Form()],
     title: Annotated[str, Form(min_length=2, max_length=120)],
-    source_type: Annotated[Literal["book", "images", "text"], Form()],
+    source_type: Annotated[Literal["book", "images", "text", "ai"], Form()],
     due_at: Annotated[datetime, Form()],
     instructions: Annotated[str | None, Form(max_length=4000)] = None,
     allow_late: Annotated[bool, Form()] = True,
@@ -204,6 +205,9 @@ async def create_assignment(
     page_to: Annotated[int | None, Form(ge=1)] = None,
     problems: Annotated[str | None, Form(max_length=120)] = None,
     images: Annotated[list[UploadFile] | None, File()] = None,
+    ai_topic: Annotated[str | None, Form(max_length=200)] = None,
+    ai_count: Annotated[int | None, Form(ge=1, le=100)] = None,
+    ai_difficulty: Annotated[Literal["easy", "medium", "hard"] | None, Form()] = None,
 ) -> AssignmentOut:
     a = await svc.create_assignment(
         db,
@@ -220,6 +224,7 @@ async def create_assignment(
         page_to=page_to,
         problems=(problems or "").strip() or None,
         images=await _read_uploads(images),
+        ai_params={"topic": ai_topic, "count": ai_count, "difficulty": ai_difficulty} if source_type == "ai" else None,
     )
     return assignment_out(a)
 

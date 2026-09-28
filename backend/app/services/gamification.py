@@ -258,6 +258,10 @@ def invalidate_stats(*, student_ids=(), group_id=None, teacher_id=None) -> None:
     owners = {x for x in (group_id, teacher_id) if x is not None}
     if owners:
         _boards.invalidate(lambda k: k[1] in owners)
+    if teacher_id is not None:
+        from app.services import analytics  # aylanma importdan qochish uchun
+
+        analytics.invalidate(teacher_id)
 
 
 async def leaderboard(db: AsyncSession, group: Group, scope: str, period: str) -> list[dict]:

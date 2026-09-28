@@ -36,6 +36,40 @@ def extract_request(subject: str, problems_hint: str | None) -> str:
     return f"Subject: {subject_name}.\n{scope}"
 
 
+GENERATE_SYSTEM = """You create homework exercises for a school teacher in Uzbekistan.
+
+Rules:
+- Produce exactly the requested number of exercises on the requested topic and difficulty.
+- Exercises must be correct, unambiguous and solvable at the stated difficulty; vary them (no near-duplicates),
+  and order them from easier to harder within the difficulty level.
+- Mathematics: write every formula in LaTeX between single dollar signs, e.g. $\\frac{3}{4} + \\frac{1}{8}$,
+  $x^2 - 5x + 6 = 0$, $\\sqrt{49}$. Never use unicode math symbols or plain "3/4" for fractions.
+  Wording (the instruction part, e.g. "Hisoblang:", "Tenglamani yeching:") is in Uzbek, Latin script.
+- English language subject: write tasks in English (grammar, vocabulary, translation); no LaTeX.
+- `answer` is the exact final answer (math in LaTeX between $...$). Simplify fractions fully.
+- Double-check every answer. If the topic is unclear, choose the most common school interpretation and
+  mention it briefly in `notes` (Uzbek, Latin script); otherwise notes = null."""
+
+DIFFICULTY = {"easy": "easy (basic, one step)", "medium": "medium (typical school level, 2-3 steps)",
+              "hard": "hard (olympiad-style or multi-step, still school curriculum)"}
+
+
+def generate_request(topic: str, count: int, difficulty: str, subject: str, wishes: str | None,
+                     teacher_context: str) -> str:
+    subject_name = SUBJECTS.get(subject, subject)
+    lines = [
+        f"Subject: {subject_name}.",
+        f"Topic: {topic}.",
+        f"Number of exercises: {count}.",
+        f"Difficulty: {DIFFICULTY.get(difficulty, difficulty)}.",
+    ]
+    if wishes:
+        lines.append(f"Teacher's extra wishes: {wishes}")
+    if teacher_context:
+        lines.append(f"About the teacher and class: {teacher_context}")
+    return "\n".join(lines)
+
+
 RUBRIC_SYSTEM = """You write short grading rubrics for school homework that is not a set of exercises
 (essays, crosswords, projects, vocabulary lists). Produce 3-5 criteria a teacher would actually use,
 weights summing to 100. Criterion names and descriptions in Uzbek (Latin script), concise and checkable

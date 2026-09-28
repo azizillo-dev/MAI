@@ -25,9 +25,9 @@ DAYS_PER_MONTH = 30
 DEFAULT_PLANS = [
     {"code": TRIAL, "name": "Sinov (14 kun)", "price_uzs": 0, "max_groups": 1, "max_students": 30,
      "max_assignments_per_week": None, "is_default": False, "sort_order": 0},
-    {"code": "standard", "name": "Standart", "price_uzs": 20_000, "max_groups": 1, "max_students": 30,
+    {"code": "standard", "name": "Standart", "price_uzs": 149_000, "max_groups": 1, "max_students": 30,
      "max_assignments_per_week": None, "is_default": False, "sort_order": 1},
-    {"code": "pro", "name": "Pro", "price_uzs": 70_000, "max_groups": 3, "max_students": 90,
+    {"code": "pro", "name": "Pro", "price_uzs": 399_000, "max_groups": 3, "max_students": 90,
      "max_assignments_per_week": None, "is_default": False, "sort_order": 2},
 ]
 

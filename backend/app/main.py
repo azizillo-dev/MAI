@@ -6,11 +6,12 @@ from pathlib import Path
 from fastapi import FastAPI
 from fastapi.responses import HTMLResponse
 
-from app.api.routes import admin, assignments, auth, gamification, groups, me, teachers
+from app.api.routes import admin, assignments, auth, extras, gamification, groups, me, teachers
 from app.core.config import get_settings
 from app.core.errors import register_error_handlers
 from app.db.session import get_sessionmaker
 from app.services.assignments import resume_pending
+from app.services.jetons import seed_jetons
 from app.services.plans import seed_plans
 
 logging.basicConfig(level=logging.INFO)
@@ -20,6 +21,7 @@ logging.basicConfig(level=logging.INFO)
 async def lifespan(_: FastAPI):
     async with get_sessionmaker()() as db:
         await seed_plans(db)
+        await seed_jetons(db)
     await resume_pending()
     yield
 
@@ -34,7 +36,7 @@ def create_app() -> FastAPI:
         redoc_url=None,
     )
     register_error_handlers(app)
-    for module in (auth, me, teachers, groups, gamification, admin):
+    for module in (auth, me, teachers, groups, gamification, extras, admin):
         app.include_router(module.router, prefix="/api/v1")
     # /api/v1/... va /media/... yo'llari routerning o'zida
     app.include_router(assignments.router)

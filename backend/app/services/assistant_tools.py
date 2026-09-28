@@ -261,6 +261,122 @@ class AssistantTools:
         })
         return report
 
+
+    async def _group_data(self, group_id: str, last_n: int | None = None):
+        groups = {str(g.id): g for g in await self._groups()}
+        g = groups.get(group_id)
+        if g is None:
+            return None, [], [], []
+        members = list(await self.db.scalars(
+            select(User).join(GroupMember, GroupMember.student_id == User.id)
+            .where(GroupMember.group_id == g.id, GroupMember.status == MemberStatus.ACTIVE)
+        ))
+        assignments = list(await self.db.scalars(
+            select(Assignment).where(Assignment.group_id == g.id, Assignment.status == AssignmentStatus.PUBLISHED,
+                                     Assignment.due_at < utcnow())
+            .order_by(Assignment.due_at)
+        ))
+        if last_n:
+            assignments = assignments[-last_n:]
+        subs = list(await self.db.scalars(
+            select(Submission).where(Submission.assignment_id.in_([a.id for a in assignments]))
+        )) if assignments else []
+        return g, members, assignments, subs
+
+    async def students_below(self, group_id: str, threshold: float = 70, last_n: int = 3) -> dict:
+        last_n = max(1, min(int(last_n or 3), 20))
+        threshold = max(1.0, min(float(threshold or 70), 100.0))
+        g, members, assignments, subs = await self._group_data(group_id, last_n)
+        if g is None:
+            return {"error": "Guruh topilmadi. Avval list_groups chaqiring"}
+        if not assignments:
+            return {"group": g.name, "note": "Bu guruhda muddati o'tgan vazifa hali yo'q"}
+        by = {(s.student_id, s.assignment_id): s for s in subs}
+        below, missed = [], []
+        for m in members:
+            results = []
+            for a in assignments:
+                s = by.get((m.id, a.id))
+                results.append({"assignment": a.title, "percent": round(p, 1) if s and (p := _percent(s)) is not None
+                                else None, "submitted": s is not None})
+            graded = [r["percent"] for r in results if r["percent"] is not None]
+            not_submitted = [r["assignment"] for r in results if not r["submitted"]]
+            if graded and sum(graded) / len(graded) < threshold:
+                below.append({"name": m.full_name, "avg_percent": round(sum(graded) / len(graded), 1),
+                              "results": results})
+            if not_submitted:
+                missed.append({"name": m.full_name, "not_submitted": not_submitted})
+        below.sort(key=lambda x: x["avg_percent"])
+        return {"group": g.name, "assignments_considered": [a.title for a in assignments],
+                "threshold_percent": threshold, "below_threshold": below, "did_not_submit": missed,
+                "students_total": len(members)}
+
+    async def difficult_topics(self, group_id: str, last_n: int = 5) -> dict:
+        last_n = max(1, min(int(last_n or 5), 20))
+        g, members, assignments, subs = await self._group_data(group_id, last_n)
+        if g is None:
+            return {"error": "Guruh topilmadi. Avval list_groups chaqiring"}
+        if not assignments:
+            return {"group": g.name, "note": "Bu guruhda muddati o'tgan vazifa hali yo'q"}
+        per_assignment = []
+        item_stats: dict[tuple, dict] = {}
+        for a in assignments:
+            a_subs = [s for s in subs if s.assignment_id == a.id]
+            ps = [p for s in a_subs if (p := _percent(s)) is not None]
+            per_assignment.append({"title": a.title, "avg_percent": round(sum(ps) / len(ps), 1) if ps else None,
+                                   "submitted": len(a_subs), "students": len(members)})
+            texts = {str(i.get("number")): i.get("text") for i in (a.items or [])}
+            for s in a_subs:
+                for it in s.ai_items or []:
+                    key = (a.title, str(it.get("number")))
+                    st = item_stats.setdefault(key, {"assignment": a.title, "number": key[1],
+                                                     "text": (texts.get(key[1]) or "")[:160], "total": 0, "wrong": 0,
+                                                     "comments": []})
+                    st["total"] += 1
+                    if it.get("verdict") in ("incorrect", "partial", "missing"):
+                        st["wrong"] += 1
+                        if it.get("comment") and len(st["comments"]) < 3:
+                            st["comments"].append(it["comment"][:160])
+        hardest_items = sorted(
+            ({**v, "error_rate_percent": round(v["wrong"] / v["total"] * 100)} for v in item_stats.values()
+             if v["total"] >= 2),
+            key=lambda v: -v["error_rate_percent"],
+        )[:6]
+        ranked = sorted((a for a in per_assignment if a["avg_percent"] is not None), key=lambda a: a["avg_percent"])
+        return {"group": g.name, "assignments": per_assignment, "hardest_assignments": ranked[:3],
+                "hardest_items": hardest_items}
+
+    async def create_assignment(self, group_id: str, topic: str, count: int = 10, difficulty: str = "medium",
+                                due_in_days: int = 3, wishes: str | None = None) -> dict:
+        from datetime import datetime, timedelta
+
+        from app.core.errors import AppError
+        from app.services import assignments as svc
+
+        groups = {str(g.id): g for g in await self._groups()}
+        g = groups.get(group_id)
+        if g is None:
+            return {"error": "Guruh topilmadi. Avval list_groups chaqiring"}
+        if difficulty not in ("easy", "medium", "hard"):
+            difficulty = "medium"
+        days = max(1, min(int(due_in_days or 3), 30))
+        local = datetime.now(TASHKENT).replace(hour=20, minute=0, second=0, microsecond=0) + timedelta(days=days)
+        topic = (topic or "").strip()[:120] or "Mashqlar"
+        try:
+            a = await svc.create_assignment(
+                self.db, self.teacher, group_id=g.id, title=topic, instructions=(wishes or "").strip() or None,
+                source_type="ai", due_at=local, allow_late=True, late_penalty_percent=0,
+                ai_params={"topic": topic, "count": int(count or 10), "difficulty": difficulty},
+            )
+        except AppError as exc:
+            return {"error": exc.message}
+        self.attachments.append({"type": "assignment", "assignment_id": str(a.id), "title": a.title,
+                                 "group_name": g.name, "count": int(count or 10), "difficulty": difficulty,
+                                 "due_at": a.due_at.isoformat()})
+        return {"created": True, "assignment_id": str(a.id), "status": "draft_preparing",
+                "note": "AI misollarni tayyorlamoqda (1-2 daqiqa). Tayyor bo'lgach ustoz ko'rib chiqib e'lon qiladi; "
+                        "e'lon qilinmaguncha o'quvchilar ko'rmaydi."}
+
     async def call(self, name: str, args: dict) -> dict:
         match name:
             case "list_groups":
@@ -271,6 +387,15 @@ class AssistantTools:
                 return await self.student_report(str(args.get("student_id", "")))
             case "group_report":
                 return await self.group_report(str(args.get("group_id", "")))
+            case "students_below":
+                return await self.students_below(str(args.get("group_id", "")), args.get("threshold", 70),
+                                                 args.get("last_n", 3))
+            case "difficult_topics":
+                return await self.difficult_topics(str(args.get("group_id", "")), args.get("last_n", 5))
+            case "create_assignment":
+                return await self.create_assignment(
+                    str(args.get("group_id", "")), str(args.get("topic", "")), args.get("count", 10),
+                    str(args.get("difficulty", "medium")), args.get("due_in_days", 3), args.get("wishes"))
         return {"error": f"Noma'lum vosita: {name}"}
 
 
@@ -307,6 +432,50 @@ TOOL_SPECS = [
             "type": "object",
             "properties": {"group_id": {"type": "string", "description": "list_groups qaytargan group_id"}},
             "required": ["group_id"],
+        },
+    },
+    {
+        "name": "students_below",
+        "description": "Guruhda oxirgi N ta (muddati o'tgan) vazifa bo'yicha o'rtachasi belgilangan foizdan past "
+                       "o'quvchilar va vazifani topshirmaganlar. Masalan: 'oxirgi 3 ta vazifada 70% dan past'.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "group_id": {"type": "string"},
+                "threshold": {"type": "number", "description": "Foiz chegarasi, masalan 70"},
+                "last_n": {"type": "integer", "description": "Oxirgi nechta vazifa (standart 3)"},
+            },
+            "required": ["group_id"],
+        },
+    },
+    {
+        "name": "difficult_topics",
+        "description": "Guruh qaysi mavzu/vazifada eng ko'p qiynalyapti: vazifalar bo'yicha o'rtacha foiz, "
+                       "eng ko'p xato qilingan misollar (xato foizi va AI izohlari bilan).",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "group_id": {"type": "string"},
+                "last_n": {"type": "integer", "description": "Oxirgi nechta vazifa (standart 5)"},
+            },
+            "required": ["group_id"],
+        },
+    },
+    {
+        "name": "create_assignment",
+        "description": "Guruhga AI yaratgan misollar bilan yangi vazifa QORALAMASINI tuzadi (mavzu, soni, qiyinligi). "
+                       "Faqat ustoz aniq so'raganda chaqiring. Ustoz ko'rib chiqib e'lon qilmaguncha o'quvchilar ko'rmaydi.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "group_id": {"type": "string"},
+                "topic": {"type": "string", "description": "Mavzu, masalan 'Kasrlarni qo'shish'"},
+                "count": {"type": "integer", "description": "Misollar soni (1-40)"},
+                "difficulty": {"type": "string", "enum": ["easy", "medium", "hard"]},
+                "due_in_days": {"type": "integer", "description": "Necha kundan keyin topshirish (standart 3)"},
+                "wishes": {"type": "string", "description": "Ustozning qo'shimcha istaklari (ixtiyoriy)"},
+            },
+            "required": ["group_id", "topic", "count", "difficulty"],
         },
     },
 ]
