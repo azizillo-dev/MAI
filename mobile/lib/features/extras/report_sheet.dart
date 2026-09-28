@@ -18,6 +18,7 @@ Future<void> showReportSheet(BuildContext context, List<TeacherGroup> groups, {T
     return;
   }
   await showModalBottomSheet<void>(
+    useRootNavigator: true,
     context: context,
     isScrollControlled: true,
     useSafeArea: true,

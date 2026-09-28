@@ -154,6 +154,7 @@ class GroupDetailScreen extends ConsumerWidget {
 
   Future<void> _showSettings(BuildContext context, WidgetRef ref, TeacherGroup g) async {
     await showModalBottomSheet<void>(
+      useRootNavigator: true,
       context: context,
       isScrollControlled: true,
       useSafeArea: true,
@@ -291,6 +292,7 @@ class _InviteCardState extends ConsumerState<_InviteCard> {
 
   void _showQr() {
     showModalBottomSheet<void>(
+      useRootNavigator: true,
       context: context,
       isScrollControlled: true,
       useSafeArea: true,

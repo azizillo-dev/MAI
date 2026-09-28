@@ -363,6 +363,7 @@ class _ContentEditorState extends ConsumerState<_ContentEditor> {
 
   Future<void> _editItem([int? index]) async {
     final result = await showModalBottomSheet<AssignmentItem>(
+      useRootNavigator: true,
       context: context,
       isScrollControlled: true,
       useSafeArea: true,
@@ -374,6 +375,7 @@ class _ContentEditorState extends ConsumerState<_ContentEditor> {
 
   Future<void> _editCriterion([int? index]) async {
     final result = await showModalBottomSheet<Criterion>(
+      useRootNavigator: true,
       context: context,
       isScrollControlled: true,
       useSafeArea: true,

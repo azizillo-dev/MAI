@@ -361,6 +361,7 @@ class _QuickActions extends StatelessWidget {
       return;
     }
     final id = await showModalBottomSheet<String>(
+      useRootNavigator: true,
       context: context,
       builder: (context) => SafeArea(
         child: Column(

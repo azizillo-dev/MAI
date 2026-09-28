@@ -138,6 +138,7 @@ class SettingsScreen extends ConsumerWidget {
     final first = TextEditingController(text: me.firstName);
     final last = TextEditingController(text: me.lastName);
     final saved = await showModalBottomSheet<bool>(
+      useRootNavigator: true,
       context: context,
       isScrollControlled: true,
       builder: (context) => Padding(

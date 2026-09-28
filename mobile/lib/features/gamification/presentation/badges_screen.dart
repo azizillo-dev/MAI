@@ -87,6 +87,7 @@ class BadgesScreen extends ConsumerWidget {
 
   void _showMedal(BuildContext context, Medal m) {
     showModalBottomSheet<void>(
+      useRootNavigator: true,
       context: context,
       builder: (context) => _SheetBody(
         badge: HexBadge(tier: m.tier, icon: Icons.emoji_events_rounded, label: '${_rankOf(m)}', size: 120),
@@ -109,6 +110,7 @@ String _monthLabel(String month) {
 void showGiftAwardSheet(BuildContext context, GiftAward g) {
   HapticFeedback.selectionClick();
   showModalBottomSheet<void>(
+    useRootNavigator: true,
     context: context,
     builder: (context) => _SheetBody(
       badge: HexBadge(tier: g.tier, icon: badgeIcons[g.icon] ?? Icons.star_rounded, size: 120),
@@ -122,6 +124,7 @@ void showGiftAwardSheet(BuildContext context, GiftAward g) {
 void showBadgeSheet(BuildContext context, BadgeInfo b) {
   HapticFeedback.selectionClick();
   showModalBottomSheet<void>(
+    useRootNavigator: true,
     context: context,
     builder: (context) => _SheetBody(
       badge: HexBadge(tier: b.tier, icon: badgeIcons[b.icon] ?? Icons.star_rounded, earned: b.earned, size: 120),

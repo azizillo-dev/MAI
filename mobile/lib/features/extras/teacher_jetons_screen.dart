@@ -77,6 +77,7 @@ class TeacherJetonsScreen extends ConsumerWidget {
 
   Future<void> _buy(BuildContext context, WidgetRef ref, GiftJeton j) async {
     final sent = await showModalBottomSheet<bool>(
+      useRootNavigator: true,
       context: context,
       isScrollControlled: true,
       useSafeArea: true,
@@ -326,6 +327,7 @@ class _BuySheetState extends ConsumerState<_BuySheet> {
 
 Future<void> showGiftSheet(BuildContext context, WidgetRef ref, {required String studentId, required String name}) async {
   final gifted = await showModalBottomSheet<bool>(
+    useRootNavigator: true,
     context: context,
     isScrollControlled: true,
     useSafeArea: true,

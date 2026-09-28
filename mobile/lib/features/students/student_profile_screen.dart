@@ -126,7 +126,7 @@ class _Hero extends StatelessWidget {
                 imageUrl: c.avatarUrl,
                 size: 92,
                 ring: Colors.white,
-                color: Colors.white.withValues(alpha: 0.25),
+                color: Colors.white,
               ),
               const SizedBox(height: 12),
               Text(

@@ -106,6 +106,7 @@ class _CreateAssignmentScreenState extends ConsumerState<CreateAssignmentScreen>
       return;
     }
     final book = await showModalBottomSheet<Book>(
+      useRootNavigator: true,
       context: context,
       isScrollControlled: true,
       useSafeArea: true,

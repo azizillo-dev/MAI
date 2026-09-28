@@ -188,6 +188,7 @@ class _StudentRegisterScreenState extends ConsumerState<StudentRegisterScreen> {
     if (!formOk || _birthDate == null || _gender == null) return;
 
     final confirmed = await showModalBottomSheet<bool>(
+      useRootNavigator: true,
       context: context,
       isScrollControlled: true,
       builder: (_) => _ConfirmSheet(

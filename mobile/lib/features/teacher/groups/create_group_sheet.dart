@@ -47,6 +47,7 @@ Future<void> showCreateGroupSheet(BuildContext context, WidgetRef ref) async {
   }
 
   final groupId = await showModalBottomSheet<String>(
+    useRootNavigator: true,
     context: context,
     isScrollControlled: true,
     useSafeArea: true,

@@ -90,6 +90,7 @@ class PlansScreen extends ConsumerWidget {
 
   Future<void> _choose(BuildContext context, WidgetRef ref, PlanOffer plan) async {
     final sent = await showModalBottomSheet<bool>(
+      useRootNavigator: true,
       context: context,
       isScrollControlled: true,
       useSafeArea: true,

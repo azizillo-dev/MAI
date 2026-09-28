@@ -70,6 +70,7 @@ class ProfileScreen extends ConsumerWidget {
 Future<void> pickAvatar(BuildContext context, WidgetRef ref) async {
   final me = ref.read(currentUserProvider);
   final source = await showModalBottomSheet<ImageSource?>(
+    useRootNavigator: true,
     context: context,
     builder: (context) => SafeArea(
       child: Column(

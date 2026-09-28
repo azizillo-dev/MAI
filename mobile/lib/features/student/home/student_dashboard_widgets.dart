@@ -45,7 +45,7 @@ class StudentHeroCard extends ConsumerWidget {
                 imageUrl: me?.avatarUrl,
                 size: 48,
                 ring: Colors.white,
-                color: Colors.white.withValues(alpha: 0.25),
+                color: Colors.white,
               ),
               const SizedBox(width: 12),
               Expanded(

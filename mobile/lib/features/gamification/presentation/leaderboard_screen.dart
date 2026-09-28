@@ -46,6 +46,7 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> {
 
   Future<void> _openFilter(List<(String, String)> groups) async {
     final result = await showModalBottomSheet<(String?, LeaderScope, LeaderPeriod)>(
+      useRootNavigator: true,
       context: context,
       isScrollControlled: true,
       builder: (_) => _FilterSheet(groupId: _groupId, scope: _scope, period: _period, groups: groups),
