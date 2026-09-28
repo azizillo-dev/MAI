@@ -10,9 +10,11 @@ import '../../../core/widgets/app_widgets.dart';
 import '../../assignments/data/assignment_models.dart' show scoreText;
 import '../../assignments/data/assignments_repository.dart';
 import '../../auth/application/auth_controller.dart';
+import '../../extras/report_sheet.dart';
 import '../../groups/data/group_models.dart';
 import '../../groups/data/groups_repository.dart';
 import '../groups/create_group_sheet.dart';
+import 'analytics_widgets.dart';
 import 'dashboard_models.dart';
 
 const _weekdays = ['Dushanba', 'Seshanba', 'Chorshanba', 'Payshanba', 'Juma', 'Shanba', 'Yakshanba'];
@@ -115,6 +117,15 @@ class _TeacherHomeScreenState extends ConsumerState<TeacherHomeScreen> {
                           ..._alerts(context, d.stats, groupList),
                           const SizedBox(height: 22),
                           _WeeklyCard(d: d),
+                          if (d.analytics.groups.isNotEmpty) ...[
+                            const SizedBox(height: 26),
+                            const _Title('Guruhlar tahlili'),
+                            GroupAnalyticsCarousel(groups: d.analytics.groups),
+                          ],
+                          if (d.analytics.totalGraded > 0) ...[
+                            const SizedBox(height: 16),
+                            GradeDistributionCard(analytics: d.analytics),
+                          ],
                           if (d.upcoming.isNotEmpty) ...[
                             const SizedBox(height: 26),
                             const _Title('Yaqin muddatlar'),
@@ -402,11 +413,12 @@ class _QuickActions extends StatelessWidget {
           onTap: () => context.go('/teacher/groups'),
         ),
         const SizedBox(width: 10),
+        // AI yordamchi pastki menyuda bor — bu yerda hisobot (PDF / Excel)
         _ActionTile(
-          icon: Icons.auto_awesome_rounded,
-          label: 'AI\nyordamchi',
+          icon: Icons.summarize_rounded,
+          label: 'Hisobot\nolish',
           color: const Color(0xFF7C3AED),
-          onTap: () => context.go('/teacher/ai'),
+          onTap: () => showReportSheet(context, groups),
         ),
       ],
     );
@@ -877,61 +889,74 @@ class _GroupsStrip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // 1–2 guruh sahifaga to'liq sig'adi (surish shart emas, chetga yopishmaydi);
+    // 3+ guruhda gorizontal surish, ro'yxat ekran chetigacha yoyiladi
+    final fits = groups.length <= 2;
     return SizedBox(
       height: 124,
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        itemCount: groups.length,
-        separatorBuilder: (_, _) => const SizedBox(width: 10),
-        itemBuilder: (context, i) {
-          final g = groups[i];
-          final isMath = g.subject == 'math';
-          final color = isMath ? context.colors.primary : Palette.success;
-          return SizedBox(
-            width: 200,
-            child: SectionCard(
-              padding: const EdgeInsets.all(14),
-              onTap: () => context.push('/teacher/groups/${g.id}'),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Container(
-                        width: 36,
-                        height: 36,
-                        decoration: BoxDecoration(
-                          color: color.withValues(alpha: 0.12),
-                          borderRadius: BorderRadius.circular(11),
+      child: LayoutBuilder(builder: (context, c) {
+        final width = fits ? (c.maxWidth - 10 * (groups.length - 1)) / groups.length : 200.0;
+        final list = ListView.separated(
+          scrollDirection: Axis.horizontal,
+          physics: fits ? const NeverScrollableScrollPhysics() : null,
+          padding: fits ? EdgeInsets.zero : Insets.screen,
+          itemCount: groups.length,
+          separatorBuilder: (_, _) => const SizedBox(width: 10),
+          itemBuilder: (context, i) {
+            final g = groups[i];
+            final isMath = g.subject == 'math';
+            final color = isMath ? context.colors.primary : Palette.success;
+            return SizedBox(
+              width: width,
+              child: SectionCard(
+                padding: const EdgeInsets.all(14),
+                onTap: () => context.push('/teacher/groups/${g.id}'),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Container(
+                          width: 36,
+                          height: 36,
+                          decoration: BoxDecoration(
+                            color: color.withValues(alpha: 0.12),
+                            borderRadius: BorderRadius.circular(11),
+                          ),
+                          child: Icon(
+                            isMath ? Icons.calculate_rounded : Icons.translate_rounded,
+                            color: color,
+                            size: 20,
+                          ),
                         ),
-                        child: Icon(isMath ? Icons.calculate_rounded : Icons.translate_rounded, color: color, size: 20),
-                      ),
-                      const Spacer(),
-                      Icon(
-                        g.joinEnabled ? Icons.lock_open_rounded : Icons.lock_rounded,
-                        size: 18,
-                        color: g.joinEnabled ? context.appColors.success : context.colors.onSurfaceVariant,
-                      ),
-                    ],
-                  ),
-                  const Spacer(),
-                  Text(g.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: context.text.titleMedium),
-                  const SizedBox(height: 2),
-                  Text(
-                    g.membersPending > 0
-                        ? "${g.membersActive} o'quvchi · +${g.membersPending} kutmoqda"
-                        : "${g.membersActive} o'quvchi",
-                    style: context.text.bodySmall?.copyWith(
-                      color: g.membersPending > 0 ? context.appColors.warning : context.colors.onSurfaceVariant,
-                      fontWeight: g.membersPending > 0 ? FontWeight.w700 : null,
+                        const Spacer(),
+                        Icon(
+                          g.joinEnabled ? Icons.lock_open_rounded : Icons.lock_rounded,
+                          size: 18,
+                          color: g.joinEnabled ? context.appColors.success : context.colors.onSurfaceVariant,
+                        ),
+                      ],
                     ),
-                  ),
-                ],
+                    const Spacer(),
+                    Text(g.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: context.text.titleMedium),
+                    const SizedBox(height: 2),
+                    Text(
+                      g.membersPending > 0
+                          ? "${g.membersActive} o'quvchi · +${g.membersPending} kutmoqda"
+                          : "${g.membersActive} o'quvchi",
+                      style: context.text.bodySmall?.copyWith(
+                        color: g.membersPending > 0 ? context.appColors.warning : context.colors.onSurfaceVariant,
+                        fontWeight: g.membersPending > 0 ? FontWeight.w700 : null,
+                      ),
+                    ),
+                  ],
+                ),
               ),
-            ),
-          );
-        },
-      ),
+            );
+          },
+        );
+        return fits ? list : FullBleed(child: list);
+      }),
     );
   }
 }
@@ -943,6 +968,7 @@ class PlanCard extends StatelessWidget {
   const PlanCard({super.key, required this.plan, this.showManage = true});
 
   final PlanUsage plan;
+
   /// Tariflar sahifasining o'zida "Boshqarish" tugmasi kerak emas
   final bool showManage;
 
@@ -1000,10 +1026,7 @@ class PlanCard extends StatelessWidget {
                       icon: const Icon(Icons.bolt_rounded),
                       label: Text(plan.isExpired ? 'Tarifni faollashtirish' : 'Tarif tanlash'),
                     )
-                  : OutlinedButton(
-                      onPressed: () => context.push('/teacher/plans'),
-                      child: const Text('Tariflar'),
-                    ),
+                  : OutlinedButton(onPressed: () => context.push('/teacher/plans'), child: const Text('Tariflar')),
             ),
           ],
         ],

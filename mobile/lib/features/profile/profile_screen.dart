@@ -557,6 +557,14 @@ class _TeacherSections extends ConsumerWidget {
         ),
         const SizedBox(height: 10),
         _MenuCard(
+          icon: Icons.card_giftcard_rounded,
+          color: const Color(0xFFEA580C),
+          title: 'Jetonlarim',
+          subtitle: "Sotib oling va yaxshi o'qigan o'quvchilarga sovg'a qiling",
+          onTap: () => context.push('/teacher/jetons'),
+        ),
+        const SizedBox(height: 10),
+        _MenuCard(
           icon: Icons.emoji_events_rounded,
           color: Palette.gold,
           title: "O'quvchilar reytingi",

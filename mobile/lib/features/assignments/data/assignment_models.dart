@@ -71,7 +71,9 @@ enum AssignmentStatus {
 enum SourceType {
   book,
   images,
-  text;
+  text,
+  // Misollarni AI yaratadi (mavzu, soni, qiyinligi bo'yicha)
+  ai;
 
   static SourceType parse(String s) => values.asNameMap()[s] ?? text;
 
@@ -79,6 +81,7 @@ enum SourceType {
         SourceType.book => 'Kitob',
         SourceType.images => 'Rasm',
         SourceType.text => 'Matn',
+        SourceType.ai => 'AI yaratgan',
       };
 }
 

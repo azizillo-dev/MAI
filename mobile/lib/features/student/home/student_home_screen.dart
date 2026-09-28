@@ -11,9 +11,9 @@ import '../../assignments/data/assignments_repository.dart';
 import '../../assignments/presentation/student/student_tasks_screen.dart';
 import '../../auth/application/auth_controller.dart';
 import '../../gamification/data/gamification_models.dart';
-import '../../profile/profile_screen.dart' show StatTile;
 import '../../groups/data/group_models.dart';
 import '../../groups/data/groups_repository.dart';
+import 'student_dashboard_widgets.dart';
 
 class StudentHomeScreen extends ConsumerWidget {
   const StudentHomeScreen({super.key});
@@ -77,7 +77,12 @@ class StudentHomeScreen extends ConsumerWidget {
                 padding: Insets.screen.copyWith(bottom: 24),
                 sliver: SliverList.list(
                   children: [
-                    const _ProgressStrip(),
+                    StudentHeroCard(p: ref.watch(studentProgressProvider).value),
+                    GiftBanner(p: ref.watch(studentProgressProvider).value),
+                    const SizedBox(height: 16),
+                    WeeklyGoalCard(list: ref.watch(studentAssignmentsProvider).value ?? const []),
+                    const SizedBox(height: 16),
+                    ResultsTrendCard(list: ref.watch(studentAssignmentsProvider).value ?? const []),
                     const SizedBox(height: 20),
                     ..._todo(context, ref),
                     Text('Guruhlarim', style: context.text.titleLarge),
@@ -98,47 +103,6 @@ class StudentHomeScreen extends ConsumerWidget {
           ],
         ),
       ),
-    );
-  }
-}
-
-/// XP, reyting, seriya, nishonlar — bosh sahifada doim ko'rinadi (Cambridge "Main" uslubi)
-class _ProgressStrip extends ConsumerWidget {
-  const _ProgressStrip();
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final p = ref.watch(studentProgressProvider).value;
-    return GridView.count(
-      crossAxisCount: 2,
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      mainAxisSpacing: 10,
-      crossAxisSpacing: 10,
-      childAspectRatio: 2.2,
-      children: [
-        StatTile(icon: Icons.star_rounded, color: Palette.warning, value: '${p?.xp ?? '—'}', label: 'XP ball'),
-        StatTile(
-          icon: Icons.leaderboard_rounded,
-          color: Palette.success,
-          value: p?.bestRank == null ? '—' : '#${p!.bestRank!.rank}',
-          label: 'Reyting',
-          onTap: () => context.go('/student/rating'),
-        ),
-        StatTile(
-          icon: Icons.local_fire_department_rounded,
-          color: Palette.danger,
-          value: '${p?.currentStreak ?? '—'}',
-          label: 'Seriya',
-        ),
-        StatTile(
-          icon: Icons.military_tech_rounded,
-          color: const Color(0xFF8B5CF6),
-          value: p == null ? '—' : '${p.badgesEarned}/${p.badgesTotal}',
-          label: 'Nishonlar',
-          onTap: () => context.push('/badges'),
-        ),
-      ],
     );
   }
 }

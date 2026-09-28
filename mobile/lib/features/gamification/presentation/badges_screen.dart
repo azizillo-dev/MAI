@@ -27,6 +27,20 @@ class BadgesScreen extends ConsumerWidget {
               padding: Insets.screen.copyWith(top: 4, bottom: 32),
               children: [
                 _Summary(p: p),
+                if (p.gifts.isNotEmpty) ...[
+                  const SizedBox(height: 14),
+                  _CategoryCard(
+                    title: "Ustoz sovg'alari",
+                    children: [
+                      for (final g in p.gifts.reversed)
+                        _BadgeCell(
+                          badge: HexBadge(tier: g.tier, icon: badgeIcons[g.icon] ?? Icons.star_rounded, size: 78),
+                          name: g.name,
+                          onTap: () => showGiftAwardSheet(context, g),
+                        ),
+                    ],
+                  ),
+                ],
                 if (p.medals.isNotEmpty) ...[
                   const SizedBox(height: 14),
                   _CategoryCard(
@@ -90,6 +104,19 @@ String _monthLabel(String month) {
   final m = int.tryParse(parts[1]) ?? 1;
   final name = uzMonths[(m - 1).clamp(0, 11)];
   return '${name[0].toUpperCase()}${name.substring(1)} ${parts[0]}';
+}
+
+void showGiftAwardSheet(BuildContext context, GiftAward g) {
+  HapticFeedback.selectionClick();
+  showModalBottomSheet<void>(
+    context: context,
+    builder: (context) => _SheetBody(
+      badge: HexBadge(tier: g.tier, icon: badgeIcons[g.icon] ?? Icons.star_rounded, size: 120),
+      title: g.name,
+      subtitle: [if (g.teacher != null) "${g.teacher} sovg'a qildi", formatDateUz(g.awardedAt)].join(' · '),
+      body: g.note,
+    ),
+  );
 }
 
 void showBadgeSheet(BuildContext context, BadgeInfo b) {

@@ -11,6 +11,7 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/utils/formatters.dart';
 import '../../../../core/widgets/app_widgets.dart';
+import '../../../../core/widgets/math_text.dart';
 import '../../data/assignment_models.dart';
 import '../../data/assignments_repository.dart';
 import '../widgets.dart';
@@ -310,7 +311,7 @@ class _TaskContent extends StatelessWidget {
                   ListTile(
                     leading: Text(item.number,
                         style: context.text.titleMedium?.copyWith(color: context.colors.primary)),
-                    title: Text(item.text),
+                    title: MathText(item.text),
                   ),
                 ],
               ],

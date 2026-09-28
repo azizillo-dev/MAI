@@ -68,6 +68,30 @@ class Medal {
       );
 }
 
+/// Ustoz sovg'a qilgan jeton
+class GiftAward {
+  const GiftAward({required this.code, required this.name, required this.icon, required this.tier,
+      this.teacher, this.note, required this.awardedAt});
+
+  final String code;
+  final String name;
+  final String icon;
+  final String tier;
+  final String? teacher;
+  final String? note;
+  final DateTime awardedAt;
+
+  factory GiftAward.fromJson(Map<String, dynamic> j) => GiftAward(
+        code: j['code'] as String,
+        name: j['name'] as String? ?? j['code'] as String,
+        icon: j['icon'] as String? ?? 'star',
+        tier: j['tier'] as String? ?? 'gold',
+        teacher: j['teacher'] as String?,
+        note: j['note'] as String?,
+        awardedAt: DateTime.parse(j['awarded_at'] as String).toLocal(),
+      );
+}
+
 class GroupRank {
   const GroupRank({required this.groupId, required this.groupName, required this.rank, required this.of});
 
@@ -100,6 +124,7 @@ class StudentProgress {
     required this.ranks,
     required this.badges,
     required this.medals,
+    this.gifts = const [],
   });
 
   final int xp;
@@ -116,6 +141,7 @@ class StudentProgress {
   final List<GroupRank> ranks;
   final List<BadgeInfo> badges;
   final List<Medal> medals;
+  final List<GiftAward> gifts;
 
   double get levelProgress => levelSpan == 0 ? 0 : levelXp / levelSpan;
   GroupRank? get bestRank => ranks.isEmpty ? null : ranks.first;
@@ -137,6 +163,7 @@ class StudentProgress {
       ranks: [for (final r in j['ranks'] as List) GroupRank.fromJson(r as Map<String, dynamic>)],
       badges: [for (final b in j['badges'] as List) BadgeInfo.fromJson(b as Map<String, dynamic>)],
       medals: [for (final m in j['medals'] as List) Medal.fromJson(m as Map<String, dynamic>)],
+      gifts: [for (final g in (j['gifts'] as List? ?? const [])) GiftAward.fromJson(g as Map<String, dynamic>)],
     );
   }
 }

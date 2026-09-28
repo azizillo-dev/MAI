@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/app_widgets.dart';
+import '../../core/widgets/math_text.dart';
 import '../auth/application/auth_controller.dart';
 import '../groups/data/groups_repository.dart';
 import 'assistant_controller.dart';
@@ -120,10 +121,10 @@ class _Intro extends ConsumerWidget {
 
     final suggestions = [
       if (student != null) '${student.fullName} qanday o\'qiyapti?',
-      if (first != null) '«${first.name}» guruhida kim orqada qolyapti?',
-      "Qaysi mavzularda ko'p xato qilinyapti?",
+      if (first != null) '«${first.name}» guruhida oxirgi 3 ta vazifada kim 70% dan past oldi?',
+      if (first != null) '«${first.name}» guruhi qaysi mavzuda eng ko\'p qiynalyapti?',
+      if (first != null) '«${first.name}» guruhiga kasrlar bo\'yicha 10 ta o\'rtacha misol ber',
       if (groups.length > 1) 'Guruhlarimni solishtirib ber',
-      'Bu hafta kim vazifa topshirmadi?',
     ];
 
     return ListView(
@@ -245,6 +246,9 @@ class _Bubble extends StatelessWidget {
               ),
               child: user
                   ? Text(message.text, style: TextStyle(color: fg, fontSize: 15, height: 1.35))
+                  // Formula (WidgetSpan) bo'lsa belgilab nusxalash imkoni yo'q — oddiy Text.rich
+                  : hasMath(message.text)
+                  ? Text.rich(richAssistantText(message.text, TextStyle(color: fg, fontSize: 15, height: 1.45)))
                   : SelectableText.rich(
                       richAssistantText(message.text, TextStyle(color: fg, fontSize: 15, height: 1.45)),
                     ),
@@ -258,6 +262,7 @@ class _Bubble extends StatelessWidget {
                 child: switch (a) {
                   StudentAttachment() => _StudentCard(a: a),
                   GroupAttachment() => _GroupCard(a: a),
+                  AssignmentAttachment() => _AssignmentCard(a: a),
                 },
               ),
             ),
@@ -274,13 +279,61 @@ TextSpan richAssistantText(String text, TextStyle base) {
     return m == null ? l : '${m.group(1)}•  ${l.substring(m.end)}';
   }).join('\n');
   final parts = lines.split('**');
+  const bold = TextStyle(fontWeight: FontWeight.w700);
   return TextSpan(
     style: base,
     children: [
       for (final (i, p) in parts.indexed)
-        TextSpan(text: p, style: i.isOdd ? const TextStyle(fontWeight: FontWeight.w700) : null),
+        // `$...$` formulalar LaTeX bo'lib chiziladi
+        if (hasMath(p))
+          TextSpan(style: i.isOdd ? bold : null, children: mathSpans(p, i.isOdd ? base.merge(bold) : base))
+        else
+          TextSpan(text: p, style: i.isOdd ? bold : null),
     ],
   );
+}
+
+class _AssignmentCard extends StatelessWidget {
+  const _AssignmentCard({required this.a});
+
+  final AssignmentAttachment a;
+
+  @override
+  Widget build(BuildContext context) {
+    const levels = {'easy': 'Oson', 'medium': "O'rta", 'hard': 'Qiyin'};
+    return SectionCard(
+      onTap: () => context.push('/teacher/assignments/${a.id}'),
+      padding: const EdgeInsets.all(14),
+      child: Row(
+        children: [
+          Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              gradient: LinearGradient(colors: [_violet, context.colors.primary]),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: const Icon(Icons.auto_awesome_rounded, color: Colors.white),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(a.title, maxLines: 1, overflow: TextOverflow.ellipsis, style: context.text.titleSmall),
+                Text("${a.groupName} · ${a.count} ta · ${levels[a.difficulty] ?? a.difficulty}",
+                    style: context.text.bodySmall?.copyWith(color: context.colors.onSurfaceVariant)),
+                const SizedBox(height: 4),
+                Text('Qoralama · ko\'rib chiqib e\'lon qiling',
+                    style: context.text.labelSmall?.copyWith(color: _violet, fontWeight: FontWeight.w700)),
+              ],
+            ),
+          ),
+          Icon(Icons.chevron_right_rounded, color: context.appColors.muted),
+        ],
+      ),
+    );
+  }
 }
 
 class _Typing extends StatefulWidget {

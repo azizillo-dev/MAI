@@ -8,8 +8,9 @@ import '../../core/utils/formatters.dart';
 import '../../core/widgets/app_widgets.dart';
 import '../assistant/assistant_controller.dart';
 import '../auth/data/auth_models.dart' show formatPhone;
-import '../gamification/presentation/badges_screen.dart' show showBadgeSheet;
+import '../gamification/presentation/badges_screen.dart' show showBadgeSheet, showGiftAwardSheet;
 import '../gamification/presentation/hex_badge.dart';
+import '../extras/teacher_jetons_screen.dart' show showGiftSheet;
 import 'student_card.dart';
 
 /// O'quvchi profili: ustoz (to'liq, ishlar ro'yxati bilan) va guruhdoshlar (XP, jetonlar, reyting) uchun
@@ -46,7 +47,13 @@ class StudentProfileScreen extends ConsumerWidget {
                     _Badges(c: c),
                     if (c.teacherView case final tv?) ...[
                       const SizedBox(height: 22),
-                      _AskAi(name: c.fullName),
+                      Row(
+                        children: [
+                          Expanded(child: _AskAi(name: c.fullName)),
+                          const SizedBox(width: 10),
+                          Expanded(child: _GiftButton(studentId: c.id, name: c.firstName)),
+                        ],
+                      ),
                       const SizedBox(height: 22),
                       _Summary(tv: tv),
                       if (tv.missing.isNotEmpty) ...[
@@ -292,6 +299,12 @@ class _Badges extends StatelessWidget {
           ),
           name: m.name,
         ),
+      for (final g in p.gifts.reversed)
+        _BadgeCell(
+          badge: HexBadge(tier: g.tier, icon: badgeIcons[g.icon] ?? Icons.star_rounded, size: 64),
+          name: g.name,
+          onTap: () => showGiftAwardSheet(context, g),
+        ),
       for (final b in p.badges)
         _BadgeCell(
           badge: HexBadge(tier: b.tier, icon: badgeIcons[b.icon] ?? Icons.star_rounded, size: 64),
@@ -302,7 +315,7 @@ class _Badges extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _SectionTitle('Jetonlar', count: p.badgesEarned + p.medals.length),
+        _SectionTitle('Jetonlar', count: p.badgesEarned + p.medals.length + p.gifts.length),
         SectionCard(
           padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 8),
           child: cells.isEmpty
@@ -374,7 +387,8 @@ class _AskAi extends ConsumerWidget {
           ref.read(assistantChatProvider.notifier).send("$name qanday o'qiyapti? Batafsil tahlil qilib ber");
           context.go('/teacher/ai');
         },
-        child: Row(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Container(
               width: 42,
@@ -385,20 +399,41 @@ class _AskAi extends ConsumerWidget {
               ),
               child: const Icon(Icons.auto_awesome_rounded, color: Color(0xFF8B5CF6)),
             ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('AI tahlili', style: context.text.titleMedium),
-                  Text(
-                    "O'sish, pasayish va tipik xatolar bo'yicha xulosa",
-                    style: context.text.bodySmall?.copyWith(color: context.colors.onSurfaceVariant),
-                  ),
-                ],
+            const SizedBox(height: 10),
+            Text('AI tahlili', style: context.text.titleSmall),
+            Text("O'sish va xatolar", style: context.text.bodySmall?.copyWith(color: context.colors.onSurfaceVariant)),
+          ],
+        ),
+      );
+}
+
+class _GiftButton extends ConsumerWidget {
+  const _GiftButton({required this.studentId, required this.name});
+
+  final String studentId;
+  final String name;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) => SectionCard(
+        onTap: () async {
+          await showGiftSheet(context, ref, studentId: studentId, name: name);
+          ref.invalidate(studentCardProvider(studentId));
+        },
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              width: 42,
+              height: 42,
+              decoration: BoxDecoration(
+                color: const Color(0xFFEA580C).withValues(alpha: 0.14),
+                borderRadius: BorderRadius.circular(12),
               ),
+              child: const Icon(Icons.card_giftcard_rounded, color: Color(0xFFEA580C)),
             ),
-            Icon(Icons.chevron_right_rounded, color: context.appColors.muted),
+            const SizedBox(height: 10),
+            Text("Jeton sovg'a qilish", style: context.text.titleSmall),
+            Text("Rag'batlantiring", style: context.text.bodySmall?.copyWith(color: context.colors.onSurfaceVariant)),
           ],
         ),
       );

@@ -29,6 +29,12 @@ const badgeIcons = <String, IconData>{
   'trending': Icons.trending_up_rounded,
   'stairs': Icons.stairs_rounded,
   'trophy': Icons.emoji_events_rounded,
+  // O'qituvchi sovg'a qiladigan jetonlar
+  'star': Icons.star_rounded,
+  'pen': Icons.edit_rounded,
+  'lightbulb': Icons.lightbulb_rounded,
+  'heart': Icons.favorite_rounded,
+  'medal': Icons.military_tech_rounded,
 };
 
 /// Olti burchakli nishon. [earned] = false bo'lsa kulrang (olinmagan).

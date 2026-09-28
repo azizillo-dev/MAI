@@ -103,7 +103,7 @@ class SettingsScreen extends ConsumerWidget {
               color: Palette.info,
               title: 'Yordam va taklif',
               subtitle: "Muammo yoki g'oyangiz bo'lsa yozing",
-              onTap: () => showSnack(context, 'Tez orada: ilova ichidan yozish'),
+              onTap: () => context.push('/support'),
             ),
             _Tile(
               icon: Icons.logout_rounded,
@@ -114,7 +114,7 @@ class SettingsScreen extends ConsumerWidget {
                 final ok = await confirmDialog(
                   context,
                   title: 'Chiqish',
-                  message: "Akkauntdan chiqasizmi? Qayta kirish uchun SMS kod kerak bo'ladi.",
+                  message: "Akkauntdan chiqasizmi? Qayta kirish uchun tasdiqlash kodi kerak bo'ladi.",
                   confirmLabel: 'Chiqish',
                   destructive: true,
                 );

@@ -34,6 +34,8 @@ class _CreateAssignmentScreenState extends ConsumerState<CreateAssignmentScreen>
   final _problems = TextEditingController();
 
   SourceType _type = SourceType.book;
+  int _aiCount = 10;
+  String _aiDifficulty = 'medium';
   String? _bookId;
   final List<XFile> _images = [];
   late DateTime _due = _defaultDue();
@@ -131,6 +133,8 @@ class _CreateAssignmentScreenState extends ConsumerState<CreateAssignmentScreen>
         if (_images.isEmpty) e['images'] = 'Kamida bitta rasm qo\'shing';
       case SourceType.text:
         if (_instructions.text.trim().length < 10) e['instructions'] = 'Topshiriqni batafsilroq yozing';
+      case SourceType.ai:
+        break; // mavzu — vazifa nomi, u yuqorida tekshirilgan
     }
     if (_due.isBefore(DateTime.now().add(const Duration(minutes: 10)))) {
       e['due'] = "Muddat kamida 10 daqiqadan keyin bo'lsin";
@@ -165,6 +169,8 @@ class _CreateAssignmentScreenState extends ConsumerState<CreateAssignmentScreen>
             pageTo: _type == SourceType.book ? (int.tryParse(_pageTo.text) ?? from) : null,
             problems: _type == SourceType.book ? _problems.text.trim() : null,
             imagePaths: _type == SourceType.images ? [for (final i in _images) i.path] : const [],
+            aiCount: _type == SourceType.ai ? _aiCount : null,
+            aiDifficulty: _type == SourceType.ai ? _aiDifficulty : null,
             onProgress: (p) => mounted ? setState(() => _progress = p) : null,
           );
       ref.invalidate(groupAssignmentsProvider(widget.groupId));
@@ -194,7 +200,7 @@ class _CreateAssignmentScreenState extends ConsumerState<CreateAssignmentScreen>
               maxLength: 120,
               textCapitalization: TextCapitalization.sentences,
               decoration: InputDecoration(
-                labelText: 'Vazifa nomi',
+                labelText: _type == SourceType.ai ? 'Mavzu (vazifa nomi)' : 'Vazifa nomi',
                 hintText: 'Masalan: Kasrlarni qo\'shish',
                 errorText: _errors['title'],
                 counterText: '',
@@ -203,18 +209,29 @@ class _CreateAssignmentScreenState extends ConsumerState<CreateAssignmentScreen>
             const SizedBox(height: 20),
             Text('Vazifani qanday berasiz?', style: context.text.titleMedium),
             const SizedBox(height: 10),
-            SegmentedButton<SourceType>(
-              showSelectedIcon: false,
-              segments: const [
-                ButtonSegment(value: SourceType.book, label: Text('Kitob'), icon: Icon(Icons.menu_book_rounded)),
-                ButtonSegment(value: SourceType.images, label: Text('Rasm'), icon: Icon(Icons.photo_camera_rounded)),
-                ButtonSegment(value: SourceType.text, label: Text('Matn'), icon: Icon(Icons.edit_note_rounded)),
+            // 4 ta usul bir qatorda: ikonka tepada, yozuv pastda — tor ekranda ham sig'adi
+            Row(
+              children: [
+                for (final (i, (type, label, icon)) in const [
+                  (SourceType.book, 'Kitob', Icons.menu_book_rounded),
+                  (SourceType.images, 'Rasm', Icons.photo_camera_rounded),
+                  (SourceType.text, 'Matn', Icons.edit_note_rounded),
+                  (SourceType.ai, 'AI', Icons.auto_awesome_rounded),
+                ].indexed) ...[
+                  if (i > 0) const SizedBox(width: 8),
+                  Expanded(
+                    child: _SourceOption(
+                      label: label,
+                      icon: icon,
+                      selected: _type == type,
+                      onTap: () => setState(() {
+                        _type = type;
+                        _errors = {};
+                      }),
+                    ),
+                  ),
+                ],
               ],
-              selected: {_type},
-              onSelectionChanged: (s) => setState(() {
-                _type = s.first;
-                _errors = {};
-              }),
             ),
             const SizedBox(height: 16),
             AnimatedSize(
@@ -225,6 +242,7 @@ class _CreateAssignmentScreenState extends ConsumerState<CreateAssignmentScreen>
                 SourceType.book => _bookSection(),
                 SourceType.images => _imagesSection(),
                 SourceType.text => _textSection(),
+                SourceType.ai => _aiSection(),
               },
             ),
             if (_type != SourceType.text) ...[
@@ -235,9 +253,11 @@ class _CreateAssignmentScreenState extends ConsumerState<CreateAssignmentScreen>
                 maxLines: 5,
                 maxLength: 4000,
                 textCapitalization: TextCapitalization.sentences,
-                decoration: const InputDecoration(
-                  labelText: 'Qo\'shimcha ko\'rsatma (ixtiyoriy)',
-                  hintText: 'Masalan: yechim yo\'lini to\'liq yozing',
+                decoration: InputDecoration(
+                  labelText: _type == SourceType.ai ? "Qo'shimcha istak (ixtiyoriy)" : 'Qo\'shimcha ko\'rsatma (ixtiyoriy)',
+                  hintText: _type == SourceType.ai
+                      ? "Masalan: aralash kasrlar ham bo'lsin, matnli masala qo'shing"
+                      : 'Masalan: yechim yo\'lini to\'liq yozing',
                   counterText: '',
                 ),
               ),
@@ -250,7 +270,11 @@ class _CreateAssignmentScreenState extends ConsumerState<CreateAssignmentScreen>
               const SizedBox(height: 10),
             ],
             PrimaryButton(
-              label: _type == SourceType.text ? 'Davom etish' : 'AI misollarni ajratsin',
+              label: switch (_type) {
+                SourceType.text => 'Davom etish',
+                SourceType.ai => 'AI misollarni yaratsin',
+                _ => 'AI misollarni ajratsin',
+              },
               icon: Icons.auto_awesome_rounded,
               loading: _saving,
               onPressed: _submit,
@@ -395,6 +419,56 @@ class _CreateAssignmentScreenState extends ConsumerState<CreateAssignmentScreen>
         Text(
           "Misollar aniq ko'rinsin: yorug' joyda, sahifaga to'g'ri qarab rasmga oling.",
           style: context.text.bodySmall?.copyWith(color: context.colors.onSurfaceVariant),
+        ),
+      ],
+    );
+  }
+
+  Widget _aiSection() {
+    const levels = {'easy': 'Oson', 'medium': "O'rta", 'hard': 'Qiyin'};
+    return Column(
+      key: const ValueKey('ai'),
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Row(
+          children: [
+            Text('Misollar soni', style: context.text.titleSmall),
+            const Spacer(),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+              decoration: BoxDecoration(
+                color: context.colors.primary.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(100),
+              ),
+              child: Text(
+                '$_aiCount ta',
+                style: TextStyle(color: context.colors.primary, fontWeight: FontWeight.w800),
+              ),
+            ),
+          ],
+        ),
+        Slider(
+          value: _aiCount.toDouble(),
+          min: 5,
+          max: 40,
+          divisions: 35,
+          label: '$_aiCount',
+          onChanged: (v) => setState(() => _aiCount = v.round()),
+        ),
+        const SizedBox(height: 6),
+        Text('Qiyinlik', style: context.text.titleSmall),
+        const SizedBox(height: 8),
+        SegmentedButton<String>(
+          showSelectedIcon: false,
+          segments: [for (final e in levels.entries) ButtonSegment(value: e.key, label: Text(e.value))],
+          selected: {_aiDifficulty},
+          onSelectionChanged: (s) => setState(() => _aiDifficulty = s.first),
+        ),
+        const SizedBox(height: 12),
+        const InfoBanner(
+          icon: Icons.auto_awesome_rounded,
+          text: "AI mavzu bo'yicha misollarni javoblari bilan yaratadi, formulalar chiroyli ko'rinishda bo'ladi. "
+              "Siz ko'rib chiqasiz, kerak bo'lsa tuzatasiz va e'lon qilasiz.",
         ),
       ],
     );
@@ -603,6 +677,52 @@ class _BookUploadSheetState extends ConsumerState<_BookUploadSheet> {
             ],
             PrimaryButton(label: 'Yuklash', icon: Icons.upload_rounded, loading: _loading, onPressed: _save),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _SourceOption extends StatelessWidget {
+  const _SourceOption({required this.label, required this.icon, required this.selected, required this.onTap});
+
+  final String label;
+  final IconData icon;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final primary = context.colors.primary;
+    return Material(
+      color: selected ? primary.withValues(alpha: 0.12) : context.colors.surfaceContainerLowest,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(14),
+        side: BorderSide(color: selected ? primary : context.appColors.border, width: selected ? 1.6 : 1),
+      ),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(14),
+        onTap: () {
+          HapticFeedback.selectionClick();
+          onTap();
+        },
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 10),
+          child: Column(
+            children: [
+              Icon(icon, size: 22, color: selected ? primary : context.colors.onSurfaceVariant),
+              const SizedBox(height: 4),
+              Text(
+                label,
+                maxLines: 1,
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                  color: selected ? primary : context.colors.onSurface,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

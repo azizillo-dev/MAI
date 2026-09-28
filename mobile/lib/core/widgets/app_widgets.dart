@@ -305,3 +305,24 @@ Future<bool> confirmDialog(
   );
   return result ?? false;
 }
+
+/// Gorizontal ro'yxatni sahifa chekkasidan ([inset]) chiqarib, ekranning to'liq chetigacha yoyadi.
+/// Kartalar surilganda sahifa chizig'ida keskin kesilmaydi — ekran chetidan chiqib ketadi.
+/// Ichidagi ro'yxat birinchi element sahifa chizig'ida turishi uchun [inset] padding oladi.
+class FullBleed extends StatelessWidget {
+  const FullBleed({super.key, required this.child, this.inset = 20});
+
+  final Widget child;
+  final double inset;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, c) => OverflowBox(
+        minWidth: c.maxWidth + inset * 2,
+        maxWidth: c.maxWidth + inset * 2,
+        child: child,
+      ),
+    );
+  }
+}

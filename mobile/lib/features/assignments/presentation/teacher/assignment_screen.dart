@@ -10,6 +10,7 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/utils/formatters.dart';
 import '../../../../core/widgets/app_widgets.dart';
+import '../../../../core/widgets/math_text.dart';
 import '../../data/assignment_models.dart';
 import '../../data/assignments_repository.dart';
 import '../widgets.dart';
@@ -322,10 +323,10 @@ class _ContentView extends ConsumerWidget {
                         ),
                       ),
                     ),
-                    title: Text(item.text),
+                    title: MathText(item.text),
                     subtitle: item.answer == null
                         ? null
-                        : Text('Javob: ${item.answer}', style: TextStyle(color: context.appColors.success)),
+                        : MathText('Javob: ${item.answer}', style: TextStyle(color: context.appColors.success)),
                   ),
                 ],
             ],
@@ -467,8 +468,8 @@ class _ContentEditorState extends ConsumerState<_ContentEditor> {
           child: ListTile(
             onTap: () => _editItem(i),
             leading: Text(item.number, style: context.text.titleMedium?.copyWith(color: context.colors.primary)),
-            title: Text(item.text, maxLines: 3, overflow: TextOverflow.ellipsis),
-            subtitle: item.answer == null ? null : Text('Javob: ${item.answer}'),
+            title: MathText(item.text),
+            subtitle: item.answer == null ? null : MathText('Javob: ${item.answer}'),
             trailing: const Icon(Icons.drag_handle_rounded),
           ),
         );

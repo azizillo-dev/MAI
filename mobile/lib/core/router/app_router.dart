@@ -15,6 +15,8 @@ import '../../features/auth/presentation/phone_screen.dart';
 import '../../features/auth/presentation/register_screens.dart';
 import '../../features/auth/presentation/welcome_screen.dart';
 import '../../features/billing/plans_screen.dart';
+import '../../features/extras/support_screen.dart';
+import '../../features/extras/teacher_jetons_screen.dart';
 import '../../features/gamification/presentation/badges_screen.dart';
 import '../../features/gamification/presentation/leaderboard_screen.dart';
 import '../../features/groups/data/group_models.dart';
@@ -56,7 +58,7 @@ final _rootKey = GlobalKey<NavigatorState>();
 
 /// Ikkala rol uchun umumiy sahifalar
 bool _shared(String loc) =>
-    loc == '/settings' || loc == '/badges' || loc == '/leaderboard' || loc.startsWith('/students/');
+    loc == '/settings' || loc == '/badges' || loc == '/leaderboard' || loc == '/support' || loc.startsWith('/students/');
 
 final routerProvider = Provider<GoRouter>((ref) {
   final refresh = ValueNotifier<int>(0);
@@ -118,6 +120,7 @@ final routerProvider = Provider<GoRouter>((ref) {
         parentNavigatorKey: _rootKey,
         builder: (_, state) => StudentProfileScreen(studentId: state.pathParameters['id']!),
       ),
+      GoRoute(path: '/support', parentNavigatorKey: _rootKey, builder: (_, _) => const SupportScreen()),
       GoRoute(path: '/badges', parentNavigatorKey: _rootKey, builder: (_, _) => const BadgesScreen()),
       GoRoute(
         path: '/leaderboard',
@@ -146,6 +149,11 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/teacher/submissions/:id',
         parentNavigatorKey: _rootKey,
         builder: (_, state) => SubmissionReviewScreen(submissionId: state.pathParameters['id']!),
+      ),
+      GoRoute(
+        path: '/teacher/jetons',
+        parentNavigatorKey: _rootKey,
+        builder: (_, _) => const TeacherJetonsScreen(),
       ),
       GoRoute(
         path: '/teacher/plans',

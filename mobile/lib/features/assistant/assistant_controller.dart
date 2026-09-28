@@ -1,8 +1,11 @@
+import 'dart:convert';
+
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/network/api_client.dart';
 import '../../core/network/api_exception.dart';
+import '../../core/theme/theme_controller.dart' show sharedPrefsProvider;
 import '../auth/application/auth_controller.dart';
 
 /// Javobga ilova qilingan karta: o'quvchi yoki guruh qisqa ko'rsatkichlari
@@ -27,8 +30,32 @@ sealed class ChatAttachment {
             students: j['students'] as int? ?? 0,
             submissionRate: (j['submission_rate'] as num?)?.toDouble(),
           ),
+        'assignment' => AssignmentAttachment(
+            id: j['assignment_id'] as String,
+            title: j['title'] as String,
+            groupName: j['group_name'] as String? ?? '',
+            count: j['count'] as int? ?? 0,
+            difficulty: j['difficulty'] as String? ?? 'medium',
+          ),
         _ => null,
       };
+}
+
+/// AI yordamchi chatda yaratgan vazifa (qoralama)
+class AssignmentAttachment extends ChatAttachment {
+  const AssignmentAttachment({
+    required this.id,
+    required this.title,
+    required this.groupName,
+    required this.count,
+    required this.difficulty,
+  });
+
+  final String id;
+  final String title;
+  final String groupName;
+  final int count;
+  final String difficulty;
 }
 
 class StudentAttachment extends ChatAttachment {
@@ -70,13 +97,24 @@ class GroupAttachment extends ChatAttachment {
 }
 
 class ChatMessage {
-  const ChatMessage({required this.fromUser, required this.text, this.attachments = const [], this.failed = false});
+  const ChatMessage({required this.fromUser, required this.text, this.attachmentsRaw = const [], this.failed = false});
 
   final bool fromUser;
   final String text;
-  final List<ChatAttachment> attachments;
-  /// Xato haqida xabar (serverga tarix sifatida yuborilmaydi)
+  /// Serverdan kelgan ilovalar (kartalar) — telefon xotirasiga shu ko'rinishda saqlanadi
+  final List<Map<String, dynamic>> attachmentsRaw;
+  /// Xato haqida xabar (serverga tarix sifatida yuborilmaydi va saqlanmaydi)
   final bool failed;
+
+  List<ChatAttachment> get attachments => [for (final a in attachmentsRaw) ?ChatAttachment.fromJson(a)];
+
+  Map<String, dynamic> toJson() => {'u': fromUser, 't': text, if (attachmentsRaw.isNotEmpty) 'a': attachmentsRaw};
+
+  factory ChatMessage.fromJson(Map<String, dynamic> j) => ChatMessage(
+        fromUser: j['u'] as bool? ?? false,
+        text: j['t'] as String? ?? '',
+        attachmentsRaw: [for (final a in (j['a'] as List? ?? const [])) (a as Map).cast<String, dynamic>()],
+      );
 }
 
 class ChatState {
@@ -86,26 +124,56 @@ class ChatState {
   final bool sending;
 }
 
-/// Suhbat tarixi faqat ilova xotirasida: tab almashganda saqlanadi, chiqib ketganda o'chadi
+/// Suhbat telefon xotirasida saqlanadi: ilovadan chiqib qayta kirganda ham davom etadi.
+/// Har bir akkaunt uchun alohida; "Yangi suhbat" bosilganda tozalanadi.
 final assistantChatProvider = NotifierProvider<AssistantChat, ChatState>(AssistantChat.new);
 
 class AssistantChat extends Notifier<ChatState> {
   static const _historyLimit = 12;
+  static const _storeLimit = 60;
+
+  String? _key;
 
   @override
   ChatState build() {
-    // Boshqa akkauntga kirilsa suhbat tozalanadi
-    ref.watch(currentUserProvider.select((me) => me?.id));
-    return const ChatState();
+    // Boshqa akkauntga kirilsa — o'sha akkauntning suhbati yuklanadi
+    final userId = ref.watch(currentUserProvider.select((me) => me?.id));
+    _key = userId == null ? null : 'assistant_chat_$userId';
+    return ChatState(messages: _load());
   }
 
-  void clear() => state = const ChatState();
+  List<ChatMessage> _load() {
+    final key = _key;
+    if (key == null) return const [];
+    try {
+      final raw = ref.read(sharedPrefsProvider).getString(key);
+      if (raw == null) return const [];
+      return [for (final m in jsonDecode(raw) as List) ChatMessage.fromJson((m as Map).cast<String, dynamic>())];
+    } on Object {
+      return const []; // buzilgan yozuv ilovani to'xtatmasin
+    }
+  }
+
+  void _save(List<ChatMessage> messages) {
+    final key = _key;
+    if (key == null) return;
+    final keep = messages.where((m) => !m.failed).toList();
+    final tail = keep.length > _storeLimit ? keep.sublist(keep.length - _storeLimit) : keep;
+    ref.read(sharedPrefsProvider).setString(key, jsonEncode([for (final m in tail) m.toJson()]));
+  }
+
+  void clear() {
+    state = const ChatState();
+    final key = _key;
+    if (key != null) ref.read(sharedPrefsProvider).remove(key);
+  }
 
   Future<void> send(String text) async {
     final q = text.trim();
     if (q.isEmpty || state.sending) return;
     final messages = [...state.messages, ChatMessage(fromUser: true, text: q)];
     state = ChatState(messages: messages, sending: true);
+    _save(messages);
 
     final history = [
       for (final m in messages.where((m) => !m.failed))
@@ -127,10 +195,7 @@ class AssistantChat extends Notifier<ChatState> {
       reply = ChatMessage(
         fromUser: false,
         text: (data['reply'] as String?)?.trim() ?? '',
-        attachments: [
-          for (final a in (data['attachments'] as List? ?? const []))
-            ?ChatAttachment.fromJson(a as Map<String, dynamic>),
-        ],
+        attachmentsRaw: [for (final a in (data['attachments'] as List? ?? const [])) (a as Map).cast<String, dynamic>()],
       );
     } on ApiException catch (e) {
       reply = ChatMessage(
@@ -141,7 +206,9 @@ class AssistantChat extends Notifier<ChatState> {
             : e.message,
       );
     }
-    state = ChatState(messages: [...state.messages, reply]);
+    final updated = [...state.messages, reply];
+    state = ChatState(messages: updated);
+    _save(updated);
   }
 
   static String _clip(String s) => s.length > 2000 ? s.substring(0, 2000) : s;

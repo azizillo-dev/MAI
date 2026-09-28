@@ -86,6 +86,8 @@ class AssignmentsRepository {
     int? pageTo,
     String? problems,
     List<String> imagePaths = const [],
+    int? aiCount,
+    String? aiDifficulty,
     void Function(double)? onProgress,
   }) =>
       guard(() async {
@@ -101,6 +103,8 @@ class AssignmentsRepository {
           'page_from': ?pageFrom,
           'page_to': ?pageTo,
           if (problems != null && problems.isNotEmpty) 'problems': problems,
+          'ai_count': ?aiCount,
+          'ai_difficulty': ?aiDifficulty,
         });
         for (final (i, path) in imagePaths.indexed) {
           form.files.add(MapEntry('images', await MultipartFile.fromFile(path, filename: 'image_$i.jpg')));

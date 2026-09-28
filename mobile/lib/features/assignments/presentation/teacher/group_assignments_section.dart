@@ -78,6 +78,7 @@ class _AssignmentTile extends StatelessWidget {
       SourceType.book => Icons.menu_book_rounded,
       SourceType.images => Icons.photo_rounded,
       SourceType.text => Icons.edit_note_rounded,
+      SourceType.ai => Icons.auto_awesome_rounded,
     };
     return ListTile(
       onTap: () => context.push('/teacher/assignments/${a.id}'),

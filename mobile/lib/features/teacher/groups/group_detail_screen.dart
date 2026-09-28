@@ -11,8 +11,9 @@ import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/formatters.dart';
 import '../../../core/widgets/app_widgets.dart';
 import '../../assignments/data/assignments_repository.dart';
-import '../../groups/data/group_models.dart';
 import '../../assignments/presentation/teacher/group_assignments_section.dart';
+import '../../extras/report_sheet.dart';
+import '../../groups/data/group_models.dart';
 import '../../groups/data/groups_repository.dart';
 
 class GroupDetailScreen extends ConsumerWidget {
@@ -40,6 +41,12 @@ class GroupDetailScreen extends ConsumerWidget {
       appBar: AppBar(
         title: Text(g?.name ?? ''),
         actions: [
+          if (g != null)
+            IconButton(
+              tooltip: 'Hisobot (PDF / Excel)',
+              icon: const Icon(Icons.summarize_outlined),
+              onPressed: () => showReportSheet(context, const [], only: g),
+            ),
           if (g != null)
             IconButton(
               tooltip: 'Guruh sozlamalari',
