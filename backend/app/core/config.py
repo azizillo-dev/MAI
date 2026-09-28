@@ -10,6 +10,8 @@ class Settings(BaseSettings):
 
     environment: Literal["development", "production", "test"] = "development"
     database_url: str = "postgresql+asyncpg://mentor:mentor@localhost:5432/mentor_ai"
+    db_pool_size: int = 10
+    db_max_overflow: int = 10
 
     jwt_secret: str = "dev-jwt-secret-only-for-local-development-000"
     jwt_algorithm: str = "HS256"
@@ -53,7 +55,10 @@ class Settings(BaseSettings):
     media_root: str = "media"
     # Imzolangan havolalar shu manzil bilan beriladi (telefon yuklab olishi uchun)
     public_api_url: str = "http://10.0.2.2:8000"
-    media_url_ttl_seconds: int = 3600
+    # Rasm havolasi shu oyna davomida o'zgarmaydi (kesh uchun), 1-2 oyna amal qiladi
+    media_url_ttl_seconds: int = 86400
+    # Production'da fayllarni nginx beradi (X-Accel-Redirect). Bo'sh bo'lsa — Python o'zi beradi
+    media_accel_prefix: str = ""
     max_image_mb: int = 10
     max_pdf_mb: int = 60
     max_images_per_submission: int = 10
@@ -69,6 +74,16 @@ class Settings(BaseSettings):
     gemini_fallback_models: str = "gemini-3.5-flash,gemini-3.8-flash,gemini-flash-latest,gemini-3.5-flash-lite"
     # Shu ishonchdan past natija o'quvchiga chiqmaydi, avval ustoz ko'radi
     ai_min_confidence: float = 0.7
+    # Reyting va progress keshi (soniya). O'zgarish bo'lsa shu jarayonda darhol tozalanadi
+    stats_cache_seconds: float = 30
+    # O'quvchining vazifalar ro'yxati: eng so'nggi shuncha vazifa (bir chorakdan ko'p)
+    student_tasks_limit: int = 60
+    # AI limiti tugasa fon vazifasi navbatda kutadi: 30s, 1m, 2m ... 10 daqiqagacha, jami ~1.5 soat
+    ai_retry_base_seconds: float = 30
+    ai_retry_max_delay_seconds: float = 600
+    ai_max_attempts: int = 12
+    # Bitta AI vazifasini jarayon shu muddatga "egallaydi" (jarayon to'xtab qolsa, boshqasi oladi)
+    ai_lease_seconds: int = 600
     # Kitobdan bir vazifaga olinadigan maksimal sahifalar (xarajat va sifat uchun)
     max_book_pages_per_assignment: int = 15
 

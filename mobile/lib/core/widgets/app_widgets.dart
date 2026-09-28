@@ -1,7 +1,9 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../network/api_exception.dart';
+import '../network/media_cache.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_theme.dart';
 
@@ -244,15 +246,19 @@ class Avatar extends StatelessWidget {
     final Widget body = imageUrl == null
         ? fallback
         : ClipOval(
-            child: Image.network(
-              imageUrl!,
+            child: CachedNetworkImage(
+              imageUrl: imageUrl!,
+              // Imzo o'zgarsa ham fayl o'sha: telefon xotirasidagi nusxa ishlatiladi
+              cacheKey: mediaCacheKey(imageUrl!),
+              cacheManager: mediaCache,
               width: size,
               height: size,
               fit: BoxFit.cover,
-              // Imzolangan havola vaqt o'tib almashadi: rasm yuklanguncha bosh harflar ko'rinadi
-              frameBuilder: (context, child, frame, sync) => frame == null && !sync ? fallback : child,
-              errorBuilder: (_, _, _) => fallback,
-              cacheWidth: (size * 3).round(),
+              memCacheWidth: (size * 3).round(),
+              fadeInDuration: Duration.zero,
+              fadeOutDuration: Duration.zero,
+              placeholder: (_, _) => fallback,
+              errorWidget: (_, _, _) => fallback,
             ),
           );
     if (ring == null) return body;

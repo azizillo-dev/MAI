@@ -59,14 +59,17 @@ class Assignment(UUIDPk, Timestamps, Base):
     prepare_error: Mapped[str | None] = mapped_column(Text)
 
     status: Mapped[str] = mapped_column(String(16), default=AssignmentStatus.PREPARING, index=True)
+    # AI fon vazifasi: bir vaqtda faqat bitta jarayon oladi (ijara muddati) va limitda qayta urinishlar soni
+    ai_lease_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    ai_attempts: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
     due_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     allow_late: Mapped[bool] = mapped_column(Boolean, default=True)
     # Kechikkan ish uchun jarima foizi (0 = jarima yo'q)
     late_penalty_percent: Mapped[int] = mapped_column(Integer, default=0)
     published_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
-    group: Mapped[Group] = relationship(lazy="joined")
-    book: Mapped[Book | None] = relationship(lazy="joined")
+    group: Mapped[Group] = relationship(lazy="selectin")
+    book: Mapped[Book | None] = relationship(lazy="selectin")
     images: Mapped[list["AssignmentImage"]] = relationship(
         lazy="selectin", order_by="AssignmentImage.position", cascade="all, delete-orphan"
     )
@@ -100,6 +103,8 @@ class Submission(UUIDPk, Timestamps, Base):
     attempt: Mapped[int] = mapped_column(Integer, default=1)
 
     status: Mapped[str] = mapped_column(String(16), default=SubmissionStatus.GRADING, index=True)
+    ai_lease_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    ai_attempts: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
     # AI natijasi: har bir misol bo'yicha hukm va izoh
     ai_items: Mapped[list[dict[str, Any]]] = mapped_column(JSON, default=list)
     ai_score_percent: Mapped[float | None] = mapped_column(Float)
@@ -116,8 +121,8 @@ class Submission(UUIDPk, Timestamps, Base):
     # Guruh shkalasidagi yakuniy baho (5/10/100): o'quvchiga shu ko'rinadi
     final_score: Mapped[float | None] = mapped_column(Float)
 
-    assignment: Mapped[Assignment] = relationship(lazy="joined")
-    student: Mapped[User] = relationship(lazy="joined")
+    assignment: Mapped[Assignment] = relationship(lazy="selectin")
+    student: Mapped[User] = relationship(lazy="selectin")
     files: Mapped[list["SubmissionFile"]] = relationship(
         lazy="selectin", order_by="SubmissionFile.position", cascade="all, delete-orphan"
     )

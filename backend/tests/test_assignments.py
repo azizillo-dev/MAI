@@ -276,6 +276,28 @@ async def test_media_links_are_signed(client):
     assert (await client.get("/" + path.split("?")[0] + "?exp=1&sig=x")).status_code == 404
 
 
+async def test_media_links_stable_and_served_by_nginx(client, monkeypatch):
+    from app.core.config import get_settings
+
+    t, g, (s,) = await _setup(client, 1)
+    a = await _published(client, t, g)
+    await _submit(client, s, a)
+    await jobs.drain()
+    view = f"/api/v1/student/assignments/{a['id']}"
+    url1 = (await client.get(view, headers=s)).json()["submission"]["file_urls"][0]
+    url2 = (await client.get(view, headers=s)).json()["submission"]["file_urls"][0]
+    assert url1 == url2  # havola o'zgarmaydi: telefon keshidan foydalanadi
+
+    path = "/" + url1.split("://", 1)[1].split("/", 1)[1]
+    r = await client.get(path)
+    assert "immutable" in r.headers["cache-control"] and r.content
+
+    monkeypatch.setattr(get_settings(), "media_accel_prefix", "/_protected_media")
+    r = await client.get(path)
+    key = path.split("?")[0].removeprefix("/media/")
+    assert r.status_code == 200 and r.headers["x-accel-redirect"] == f"/_protected_media/{key}" and not r.content
+
+
 # ---------------------------------------------------------------- Yordamchilar
 
 
@@ -314,3 +336,88 @@ async def test_teacher_dashboard(client):
     # Boshqa o'qituvchi bu ma'lumotlarni ko'rmaydi
     other = await make_teacher(client)
     assert (await client.get("/api/v1/teachers/me/dashboard", headers=other)).json()["stats"]["students"] == 0
+
+
+# ---------------------------------------------------------------- AI navbati (limit, bir nechta jarayon)
+
+
+@pytest.fixture
+def fast_retry(monkeypatch):
+    from app.core.config import get_settings
+    monkeypatch.setattr(get_settings(), "ai_retry_base_seconds", 0)
+
+
+async def test_rate_limited_grading_waits_in_queue_then_succeeds(client, monkeypatch, fast_retry):
+    t, g, (s,) = await _setup(client, 1)
+    a = await _published(client, t, g)
+    fake = ai.get_provider()
+    real_grade = fake.grade
+    calls = []
+
+    async def limited_twice(ctx, work, text):
+        calls.append(1)
+        if len(calls) <= 2:
+            raise ai.AiError("AI limiti tugadi", retryable=True)
+        return await real_grade(ctx, work, text)
+
+    monkeypatch.setattr(fake, "grade", limited_twice)
+    await _submit(client, s, a)
+    await jobs.drain()
+    sub = (await client.get(f"/api/v1/student/assignments/{a['id']}", headers=s)).json()["submission"]
+    assert len(calls) == 3 and sub["status"] == "graded"  # ustozga "xato" bo'lib tushmadi
+
+
+async def test_grading_fails_after_max_attempts(client, monkeypatch, fast_retry):
+    from app.core.config import get_settings
+    monkeypatch.setattr(get_settings(), "ai_max_attempts", 3)
+    t, g, (s,) = await _setup(client, 1)
+    a = await _published(client, t, g)
+    calls = []
+
+    async def always_limited(ctx, work, text):
+        calls.append(1)
+        raise ai.AiError("AI limiti tugadi", retryable=True)
+
+    monkeypatch.setattr(ai.get_provider(), "grade", always_limited)
+    await _submit(client, s, a)
+    await jobs.drain()
+    sub = (await client.get(f"/api/v1/submissions/{(await client.get(f'/api/v1/assignments/{a['id']}/submissions', headers=t)).json()[0]['id']}", headers=t)).json()
+    assert len(calls) == 3 and sub["status"] == "failed" and "qo'lda" in sub["note_teacher"]
+
+
+async def test_same_job_runs_once_even_if_started_twice(client, monkeypatch):
+    import asyncio
+    import uuid
+
+    from app.services.assignments import grade_submission
+
+    t, g, (s,) = await _setup(client, 1)
+    a = await _published(client, t, g)
+    fake = ai.get_provider()
+    real_grade = fake.grade
+    calls = []
+
+    async def slow(ctx, work, text):
+        calls.append(1)
+        await asyncio.sleep(0.05)
+        return await real_grade(ctx, work, text)
+
+    monkeypatch.setattr(fake, "grade", slow)
+    r = await _submit(client, s, a)
+    sid = uuid.UUID(r.json()["submission"]["id"])
+    # Topshirishda bitta vazifa allaqachon ishga tushgan; yana ikkita jarayon (yoki qayta ishga tushish) xuddi shu ishni olishga urinadi
+    await asyncio.gather(grade_submission(sid), grade_submission(sid))
+    await jobs.drain()
+    assert len(calls) == 1
+
+
+async def test_student_task_list_is_bounded_to_latest(client, monkeypatch):
+    from app.core.config import get_settings
+
+    t, g, (s,) = await _setup(client, 1)
+    ids = [(await _published(client, t, g, due_at=(datetime.now(UTC) + timedelta(days=d)).isoformat()))["id"]
+           for d in (1, 2, 3)]
+    monkeypatch.setattr(get_settings(), "student_tasks_limit", 2)
+    lst = (await client.get("/api/v1/student/assignments", headers=s)).json()
+    # Eng so'nggi ikkitasi, muddati bo'yicha o'sish tartibida
+    assert [a["id"] for a in lst] == ids[1:]

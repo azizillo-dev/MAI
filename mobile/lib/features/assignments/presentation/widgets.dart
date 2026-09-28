@@ -1,5 +1,7 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
+import '../../../core/network/media_cache.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/formatters.dart';
@@ -15,22 +17,17 @@ class NetImage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Image.network(
-      url,
+    return CachedNetworkImage(
+      imageUrl: url,
+      cacheKey: mediaCacheKey(url),
+      cacheManager: mediaCache,
       fit: fit,
-      gaplessPlayback: true,
-      frameBuilder: (context, child, frame, sync) => AnimatedOpacity(
-        opacity: frame == null ? 0 : 1,
-        duration: const Duration(milliseconds: 200),
-        child: child,
+      fadeInDuration: const Duration(milliseconds: 200),
+      placeholder: (context, _) => ColoredBox(
+        color: context.colors.surfaceContainer,
+        child: const Center(child: SizedBox(width: 22, height: 22, child: CircularProgressIndicator(strokeWidth: 2))),
       ),
-      loadingBuilder: (context, child, progress) => progress == null
-          ? child
-          : ColoredBox(
-              color: context.colors.surfaceContainer,
-              child: const Center(child: SizedBox(width: 22, height: 22, child: CircularProgressIndicator(strokeWidth: 2))),
-            ),
-      errorBuilder: (context, _, _) => ColoredBox(
+      errorWidget: (context, _, _) => ColoredBox(
         color: context.colors.surfaceContainer,
         child: Icon(Icons.broken_image_outlined, color: context.colors.onSurfaceVariant),
       ),

@@ -7,7 +7,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import Forbidden, Unauthorized
-from app.core.security import as_utc, decode_access_token, utcnow
+from app.core.security import decode_access_token, utcnow
 from app.db.session import get_db
 from app.models import AuthSession, Role, User
 
@@ -28,19 +28,24 @@ async def get_principal(
     if creds is None:
         raise Unauthorized("AUTH_REQUIRED", "Tizimga kiring")
     payload = decode_access_token(creds.credentials)
-    # Har bir so'rovda ishlaydi: sessiya va foydalanuvchi (profili bilan) bitta so'rovda olinadi
-    row = (await db.execute(
-        select(AuthSession, User)
-        .join(User, User.id == AuthSession.user_id)
-        .where(AuthSession.id == uuid.UUID(payload["sid"]), User.id == uuid.UUID(payload["sub"]))
-    )).first()
-    session, user = row if row else (None, None)
-    # Chiqib ketilgan (logout) sessiya access token muddati tugashini kutmasdan darhol yopiladi
-    if session is None or session.revoked_at is not None or as_utc(session.expires_at) < utcnow():
+    sid = uuid.UUID(payload["sid"])
+    # Har bir so'rovda ishlaydi: sessiya tekshiruvi shartda, natijada faqat foydalanuvchi (profili bilan).
+    # Chiqib ketilgan (logout) sessiya access token muddati tugashini kutmasdan darhol yopiladi.
+    user = await db.scalar(
+        select(User)
+        .join(AuthSession, AuthSession.user_id == User.id)
+        .where(
+            AuthSession.id == sid,
+            User.id == uuid.UUID(payload["sub"]),
+            AuthSession.revoked_at.is_(None),
+            AuthSession.expires_at > utcnow(),
+        )
+    )
+    if user is None:
         raise Unauthorized("SESSION_INVALID", "Sessiya tugagan. Qaytadan kiring")
     if not user.is_active:
         raise Unauthorized("USER_BLOCKED", "Akkaunt bloklangan")
-    return Principal(user, session.id)
+    return Principal(user, sid)
 
 
 CurrentPrincipal = Annotated[Principal, Depends(get_principal)]

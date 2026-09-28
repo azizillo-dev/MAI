@@ -22,7 +22,14 @@ from app.core.config import get_settings
 
 
 class AiError(Exception):
-    """AI javob bera olmadi (tarmoq, limit, rad etish). Xabar ustozga ko'rsatiladi."""
+    """AI javob bera olmadi (tarmoq, limit, rad etish). Xabar ustozga ko'rsatiladi.
+
+    retryable=True — vaqtinchalik muammo (limit, band, tarmoq): fon vazifasi keyinroq qayta uriniladi.
+    """
+
+    def __init__(self, message: str, *, retryable: bool = False) -> None:
+        super().__init__(message)
+        self.retryable = retryable
 
 
 @dataclass
@@ -230,7 +237,8 @@ class GeminiProvider:
                         if attempt < 2:
                             await asyncio.sleep(self.retry_base_seconds * 2 ** (attempt + 1))
                             continue
-                        raise AiError("AI limiti tugadi (daqiqa/kunlik). Birozdan keyin qayta urinib ko'ring") from exc
+                        raise AiError("AI limiti tugadi (daqiqa/kunlik). Birozdan keyin qayta urinib ko'ring",
+                                      retryable=True) from exc
                     if exc.code == 404:  # model nomi eskirgan: keyingisiga o'tamiz
                         break
                     if exc.code in (400, 403) and "API key" in str(exc):
@@ -249,11 +257,11 @@ class GeminiProvider:
                     if attempt < 3:
                         await asyncio.sleep(self.retry_base_seconds * 2 ** attempt)
                         continue
-                    raise AiError("AI xizmatiga ulanib bo'lmadi") from exc
+                    raise AiError("AI xizmatiga ulanib bo'lmadi", retryable=True) from exc
         code = getattr(last, "code", None)
         if code == 429:
-            raise AiError("AI limiti tugadi (daqiqa/kunlik). Birozdan keyin qayta urinib ko'ring") from last
-        raise AiError(f"AI hozir band ({code}). Keyinroq qayta urinib ko'ring") from last
+            raise AiError("AI limiti tugadi (daqiqa/kunlik). Birozdan keyin qayta urinib ko'ring", retryable=True) from last
+        raise AiError(f"AI hozir band ({code}). Keyinroq qayta urinib ko'ring", retryable=True) from last
 
     @staticmethod
     def _image(img: Image):

@@ -4,6 +4,8 @@ from typing import Literal
 
 from fastapi import APIRouter, Query
 from sqlalchemy import select
+from sqlalchemy.orm import noload
+from sqlalchemy.orm.attributes import set_committed_value
 
 from app.api.deps import DB, CurrentStudent, CurrentTeacher
 from app.api.presenters import member_out, membership_out, teacher_group_out
@@ -123,11 +125,14 @@ async def list_members(
     status: Literal["active", "pending"] | None = Query(None),
 ) -> list[MemberOut]:
     group = await svc.get_teacher_group(db, teacher, group_id)
-    q = select(GroupMember).where(GroupMember.group_id == group.id)
+    # Guruh qo'limizda bor: har a'zo uchun qayta yuklanmaydi
+    q = select(GroupMember).options(noload(GroupMember.group)).where(GroupMember.group_id == group.id)
     q = q.where(GroupMember.status == status) if status else q.where(
         GroupMember.status.in_([MemberStatus.ACTIVE, MemberStatus.PENDING])
     )
     members = list(await db.scalars(q))
+    for m in members:
+        set_committed_value(m, "group", group)
     # Kutayotganlar tepada, keyin familiya bo'yicha
     members.sort(key=lambda m: (m.status != MemberStatus.PENDING, m.student.last_name, m.student.first_name))
     return [member_out(m) for m in members]

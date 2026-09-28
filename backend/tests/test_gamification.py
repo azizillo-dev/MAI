@@ -91,3 +91,22 @@ async def test_avatar_upload_and_teacher_name_edit(client):
     assert "Aziz Nabiyev" in ctx
     r = await client.patch("/api/v1/me", headers=s, json={"first_name": "Boshqa"})
     assert r.status_code == 403
+
+
+async def test_leaderboard_cache_refreshes_after_new_grade(client):
+    t, g, (s1, s2) = await _setup(client, 2)
+    a = await _published(client, t, g)
+    await _submit(client, s1, a)
+    await jobs.drain()
+    board = (await client.get(f"/api/v1/leaderboard?group_id={g['id']}", headers=s1)).json()
+    points = sorted(e["points"] for e in board["entries"])
+    assert points[0] == 0 and points[1] > 0
+
+    # Ikkinchi o'quvchi baholandi (boshqa rasm — aks holda "ko'chirilgan" deb ustozga tushadi):
+    # kesh eskirgan natijani qaytarmasligi kerak
+    await _submit(client, s2, a, color=(200, 40, 40))
+    await jobs.drain()
+    board = (await client.get(f"/api/v1/leaderboard?group_id={g['id']}", headers=s1)).json()
+    assert all(e["points"] > 0 for e in board["entries"])
+    progress = (await client.get("/api/v1/students/me/progress", headers=s2)).json()
+    assert progress["xp"] > 0 and progress["stats"]["works"] == 1

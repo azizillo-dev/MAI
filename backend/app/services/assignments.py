@@ -5,6 +5,7 @@ Holatlar:
   Submission: grading -> graded | needs_review | failed; ustoz istalgan vaqtda bahoni o'zgartiradi
 """
 
+import asyncio
 import hashlib
 import io
 import logging
@@ -12,7 +13,7 @@ import uuid
 from datetime import UTC, datetime, timedelta, timezone
 
 from pypdf import PdfReader, PdfWriter
-from sqlalchemy import func, select
+from sqlalchemy import func, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.ai.provider import AiError, GradingContext, Image, Usage, get_provider
@@ -54,12 +55,13 @@ async def create_book(db: AsyncSession, teacher: User, title: str, page_offset: 
     check_size(data, s.max_pdf_mb, "PDF")
     check_pdf(data)
     try:
-        page_count = len(PdfReader(io.BytesIO(data)).pages)
+        # PDF tahlili CPU talab qiladi: alohida oqimda, server boshqa so'rovlarga javob beraveradi
+        page_count = await asyncio.to_thread(lambda: len(PdfReader(io.BytesIO(data)).pages))
     except Exception as exc:
         raise AppError("PDF_BROKEN", "PDF faylni o'qib bo'lmadi. Boshqa faylni yuklang", 422) from exc
     if page_offset < 1 or page_offset > page_count:
         raise AppError("PAGE_OFFSET_INVALID", f"1 dan {page_count} gacha bo'lishi kerak", 422)
-    key = get_storage().save(f"books/{teacher.id}", data, ".pdf")
+    key = await get_storage().asave(f"books/{teacher.id}", data, ".pdf")
     book = Book(teacher_id=teacher.id, title=title, file_key=key, page_count=page_count, page_offset=page_offset)
     db.add(book)
     await db.commit()
@@ -177,7 +179,7 @@ async def create_assignment(
         for pos, data in enumerate(images):
             check_size(data, s.max_image_mb, "Rasm")
             mime, ext = sniff_image(data)
-            key = get_storage().save(f"assignments/{group.id}", data, ext)
+            key = await get_storage().asave(f"assignments/{group.id}", data, ext)
             assignment.images.append(AssignmentImage(file_key=key, mime=mime, position=pos))
     elif source_type == SourceType.TEXT:
         if not instructions or len(instructions.strip()) < 10:
@@ -219,50 +221,106 @@ async def _log_run(db: AsyncSession, kind: str, usage: Usage | None, *, teacher_
     )
 
 
+async def _claim(model, obj_id: uuid.UUID, status: str) -> bool:
+    """AI vazifasini egallaydi: bir nechta jarayon ishlaganda bitta ish ikki marta bajarilmaydi.
+
+    Ijara muddati tugaguncha boshqa jarayon uni ololmaydi; jarayon to'xtab qolsa, muddat o'tgach
+    `resume_pending()` qayta navbatga qo'yadi.
+    """
+    now = utcnow()
+    async with get_sessionmaker()() as db:
+        row = (await db.execute(
+            update(model)
+            .where(model.id == obj_id, model.status == status,
+                   or_(model.ai_lease_until.is_(None), model.ai_lease_until < now))
+            .values(ai_lease_until=now + timedelta(seconds=get_settings().ai_lease_seconds))
+            .returning(model.id)
+        )).first()
+        await db.commit()
+    return row is not None
+
+
+def _retry_delay(attempts: int) -> float:
+    s = get_settings()
+    return min(s.ai_retry_max_delay_seconds, s.ai_retry_base_seconds * 2 ** max(0, attempts - 1))
+
+
 async def prepare_assignment(assignment_id: uuid.UUID) -> None:
     """Fon vazifasi: misollarni ajratadi yoki rubrika tuzadi, so'ng ustoz tasdiqlashiga qo'yadi."""
+    if not await _claim(Assignment, assignment_id, AssignmentStatus.PREPARING):
+        return
+    s = get_settings()
     provider = get_provider()
-    async with get_sessionmaker()() as db:
+    storage = get_storage()
+    sm = get_sessionmaker()
+
+    # 1) Kerakli ma'lumotni o'qiymiz va ulanishni bo'shatamiz: AI javobi o'nlab soniya olishi mumkin
+    async with sm() as db:
         a = await db.get(Assignment, assignment_id)
-        if a is None or a.status != AssignmentStatus.PREPARING:
+        if a is None:
             return
-        storage = get_storage()
-        subject = a.group.subject
-        try:
-            if a.source_type == SourceType.BOOK:
-                book = a.book
-                if book is None:
-                    raise AiError("Kitob o'chirilgan")
-                pdf = slice_pdf(
-                    storage.read(book.file_key),
-                    a.page_from + book.page_offset - 1,
-                    a.page_to + book.page_offset - 1,
-                )
-                result, usage = await provider.extract_from_pdf(pdf, subject, a.problems)
-                a.items = [i.model_dump() for i in result.items]
-                a.prepare_error = result.notes
-            elif a.source_type == SourceType.IMAGES:
-                images = [Image(storage.read(img.file_key), img.mime) for img in a.images]
-                result, usage = await provider.extract_from_images(images, subject)
-                a.items = [i.model_dump() for i in result.items]
-                a.prepare_error = result.notes
-            else:
-                rubric, usage = await provider.build_rubric(a.title, a.instructions or "", subject)
-                a.rubric = [c.model_dump() for c in rubric.criteria]
-                a.prepare_error = None
-            if a.source_type != SourceType.TEXT and not a.items:
-                raise AiError("Sahifalarda misol topilmadi. Sahifa oralig'ini tekshiring yoki misollarni qo'lda kiriting")
+        source_type, subject, teacher_id = a.source_type, a.group.subject, a.teacher_id
+        title, instructions, problems = a.title, a.instructions or "", a.problems
+        book = None
+        if a.book is not None:
+            book = (a.book.file_key, a.page_from + a.book.page_offset - 1, a.page_to + a.book.page_offset - 1)
+        image_files = [(img.file_key, img.mime) for img in a.images]
+
+    items = rubric = None
+    notes: str | None = None
+    usage: Usage | None = None
+    error: Exception | None = None
+    try:
+        if source_type == SourceType.BOOK:
+            if book is None:
+                raise AiError("Kitob o'chirilgan")
+            pdf = await asyncio.to_thread(slice_pdf, await storage.aread(book[0]), book[1], book[2])
+            result, usage = await provider.extract_from_pdf(pdf, subject, problems)
+            items, notes = [i.model_dump() for i in result.items], result.notes
+        elif source_type == SourceType.IMAGES:
+            images = [Image(await storage.aread(key), mime) for key, mime in image_files]
+            result, usage = await provider.extract_from_images(images, subject)
+            items, notes = [i.model_dump() for i in result.items], result.notes
+        else:
+            built, usage = await provider.build_rubric(title, instructions, subject)
+            rubric = [c.model_dump() for c in built.criteria]
+        if source_type != SourceType.TEXT and not items:
+            raise AiError("Sahifalarda misol topilmadi. Sahifa oralig'ini tekshiring yoki misollarni qo'lda kiriting")
+    except Exception as exc:  # noqa: BLE001 — natija quyida bazaga yoziladi
+        error = exc
+
+    # 2) Natijani yozamiz
+    async with sm() as db:
+        a = await db.get(Assignment, assignment_id)
+        if a is None:
+            return
+        a.ai_lease_until = None
+        if a.status != AssignmentStatus.PREPARING:  # shu orada ustoz o'zgartirdi
+            await db.commit()
+            return
+        if error is None:
+            if items is not None:
+                a.items, a.prepare_error = items, notes
+            if rubric is not None:
+                a.rubric, a.prepare_error = rubric, None
             a.status = AssignmentStatus.REVIEW
-            await _log_run(db, "prepare", usage, teacher_id=a.teacher_id, assignment_id=a.id)
-        except AiError as exc:
+            await _log_run(db, "prepare", usage, teacher_id=teacher_id, assignment_id=a.id)
+        elif isinstance(error, AiError) and error.retryable and a.ai_attempts + 1 < s.ai_max_attempts:
+            # Limit/band: xato bermaymiz, navbatda kutadi va keyinroq o'zi qayta urinadi
+            a.ai_attempts += 1
+            await _log_run(db, "prepare", None, teacher_id=teacher_id, assignment_id=a.id, error=str(error))
+            await db.commit()
+            jobs.spawn_later(_retry_delay(a.ai_attempts), prepare_assignment, assignment_id)
+            return
+        elif isinstance(error, AiError):
             a.status = AssignmentStatus.FAILED
-            a.prepare_error = str(exc)
-            await _log_run(db, "prepare", None, teacher_id=a.teacher_id, assignment_id=a.id, error=str(exc))
-        except Exception as exc:
-            log.exception("Vazifani tayyorlashda kutilmagan xato")
+            a.prepare_error = str(error)
+            await _log_run(db, "prepare", None, teacher_id=teacher_id, assignment_id=a.id, error=str(error))
+        else:
+            log.error("Vazifani tayyorlashda kutilmagan xato", exc_info=error)
             a.status = AssignmentStatus.FAILED
             a.prepare_error = "Kutilmagan xato. Qayta urinib ko'ring yoki misollarni qo'lda kiriting"
-            await _log_run(db, "prepare", None, teacher_id=a.teacher_id, assignment_id=a.id, error=repr(exc))
+            await _log_run(db, "prepare", None, teacher_id=teacher_id, assignment_id=a.id, error=repr(error))
         await db.commit()
 
 
@@ -278,6 +336,7 @@ async def retry_prepare(db: AsyncSession, a: Assignment) -> Assignment:
         raise Conflict("ASSIGNMENT_STATE", "Vazifa hozir qayta tayyorlanmaydi")
     a.status = AssignmentStatus.PREPARING
     a.prepare_error = None
+    a.ai_attempts, a.ai_lease_until = 0, None
     await db.commit()
     jobs.spawn(prepare_assignment, a.id)
     return a
@@ -374,7 +433,7 @@ async def submit(
         if sub.attempt >= MAX_RESUBMITS:
             raise Conflict("RESUBMIT_LIMIT", f"Ko'pi bilan {MAX_RESUBMITS} marta topshirish mumkin")
         for f in list(sub.files):
-            get_storage().delete(f.file_key)
+            await get_storage().adelete(f.file_key)
         sub.files.clear()
         sub.attempt += 1
     else:
@@ -385,6 +444,7 @@ async def submit(
     sub.submitted_at = now
     sub.is_late = late
     sub.status = SubmissionStatus.GRADING
+    sub.ai_attempts, sub.ai_lease_until = 0, None
     sub.ai_items, sub.ai_score_percent, sub.ai_confidence = [], None, None
     sub.feedback_student = sub.note_teacher = None
     sub.final_score = None
@@ -392,7 +452,7 @@ async def submit(
     if sub.attempt > 1:
         await _gamify(db, sub)  # qayta topshirildi: eski XP bekor, yangi baho kutiladi
     for pos, (data, mime, ext) in enumerate(checked):
-        key = get_storage().save(f"submissions/{a.id}", data, ext)
+        key = await get_storage().asave(f"submissions/{a.id}", data, ext)
         sub.files.append(
             SubmissionFile(file_key=key, mime=mime, position=pos, sha256=hashlib.sha256(data).hexdigest())
         )
@@ -448,11 +508,17 @@ async def _duplicate_signal(db: AsyncSession, sub: Submission) -> str | None:
 
 
 async def grade_submission(submission_id: uuid.UUID) -> None:
+    if not await _claim(Submission, submission_id, SubmissionStatus.GRADING):
+        return
     s = get_settings()
     provider = get_provider()
-    async with get_sessionmaker()() as db:
+    storage = get_storage()
+    sm = get_sessionmaker()
+
+    # 1) Kontekst va fayllar; bazaga ulanish AI javobini kutish paytida band qilinmaydi
+    async with sm() as db:
         sub = await db.get(Submission, submission_id)
-        if sub is None or sub.status != SubmissionStatus.GRADING:
+        if sub is None:
             return
         a = sub.assignment
         teacher = await db.get(User, a.teacher_id)
@@ -467,14 +533,40 @@ async def grade_submission(submission_id: uuid.UUID) -> None:
             rubric=a.rubric or [],
             feedback_language=answers.get("feedback_language", "uz"),
         )
-        storage = get_storage()
-        work = [Image(storage.read(f.file_key), f.mime) for f in sub.files]
-        try:
-            result, usage = await provider.grade(ctx, work, sub.text_answer)
-        except AiError as exc:
+        attempt, text_answer, teacher_id = sub.attempt, sub.text_answer, a.teacher_id
+        files = [(f.file_key, f.mime) for f in sub.files]
+
+    result = usage = None
+    error: AiError | None = None
+    try:
+        work = [Image(await storage.aread(key), mime) for key, mime in files]
+        result, usage = await provider.grade(ctx, work, text_answer)
+    except AiError as exc:
+        error = exc
+
+    # 2) Natijani yozamiz
+    async with sm() as db:
+        sub = await db.get(Submission, submission_id)
+        if sub is None:
+            return
+        sub.ai_lease_until = None
+        if sub.status != SubmissionStatus.GRADING or sub.attempt != attempt:
+            # O'quvchi shu orada qayta topshirdi: eski natija yaroqsiz, yangi fayllar baholanadi
+            await db.commit()
+            if sub.status == SubmissionStatus.GRADING:
+                jobs.spawn(grade_submission, submission_id)
+            return
+        a = sub.assignment
+        if error is not None:
+            await _log_run(db, "grade", None, teacher_id=teacher_id, submission_id=sub.id, error=str(error))
+            if error.retryable and sub.ai_attempts + 1 < s.ai_max_attempts:
+                # Limit/band: o'quvchi "tekshirilmoqda" ko'radi, navbatda kutib o'zi qayta uriniladi
+                sub.ai_attempts += 1
+                await db.commit()
+                jobs.spawn_later(_retry_delay(sub.ai_attempts), grade_submission, submission_id)
+                return
             sub.status = SubmissionStatus.FAILED
-            sub.note_teacher = f"AI tekshira olmadi: {exc}. Iltimos, qo'lda baholang."
-            await _log_run(db, "grade", None, teacher_id=a.teacher_id, submission_id=sub.id, error=str(exc))
+            sub.note_teacher = f"AI tekshira olmadi: {error}. Iltimos, qo'lda baholang."
             await db.commit()
             return
 
@@ -499,7 +591,7 @@ async def grade_submission(submission_id: uuid.UUID) -> None:
         else:
             sub.status = SubmissionStatus.GRADED
             sub.final_score = to_scale(_with_penalty(percent, sub), a.group.grading_scale)
-        await _log_run(db, "grade", usage, teacher_id=a.teacher_id, submission_id=sub.id)
+        await _log_run(db, "grade", usage, teacher_id=teacher_id, submission_id=sub.id)
         await _gamify(db, sub)
         await db.commit()
 

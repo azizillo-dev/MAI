@@ -94,23 +94,32 @@ async def student_card(db: AsyncSession, viewer: User, student_id: uuid.UUID) ->
 
 async def _teacher_details(db: AsyncSession, student: User, groups: list[Group]) -> dict:
     group_ids = [g.id for g in groups]
-    subs = list(await db.scalars(
-        select(Submission).join(Assignment, Assignment.id == Submission.assignment_id)
+    # Ro'yxatlar uchun faqat kerakli ustunlar (fayllar, rasmlar, bog'liq obyektlar yuklanmaydi)
+    subs = (await db.execute(
+        select(Submission.id, Submission.assignment_id, Submission.status, Submission.final_score,
+               Submission.is_late, Submission.submitted_at, Assignment.title,
+               Group.name.label("group_name"), Group.grading_scale)
+        .join(Assignment, Assignment.id == Submission.assignment_id)
+        .join(Group, Group.id == Assignment.group_id)
         .where(Submission.student_id == student.id, Assignment.group_id.in_(group_ids))
         .order_by(Submission.submitted_at.desc())
-    ))
+    )).all()
     submitted_ids = {s.assignment_id for s in subs}
     now = utcnow()
-    published = list(await db.scalars(
-        select(Assignment).where(
-            Assignment.group_id.in_(group_ids), Assignment.status == AssignmentStatus.PUBLISHED,
-        ).order_by(Assignment.due_at.desc())
-    ))
+    published = (await db.execute(
+        select(Assignment.id, Assignment.title, Assignment.due_at, Group.name.label("group_name"))
+        .join(Group, Group.id == Assignment.group_id)
+        .where(Assignment.group_id.in_(group_ids), Assignment.status == AssignmentStatus.PUBLISHED)
+        .order_by(Assignment.due_at.desc())
+    )).all()
     missing = [a for a in published if a.id not in submitted_ids and as_utc(a.due_at) < now]
     open_ = [a for a in published if a.id not in submitted_ids and as_utc(a.due_at) >= now]
 
-    def pct(s: Submission) -> float | None:
-        return round(gm._percent(s), 1) if s.status == SubmissionStatus.GRADED and s.final_score is not None else None
+    def pct(s) -> float | None:
+        if s.status != SubmissionStatus.GRADED or s.final_score is None:
+            return None
+        scale = float(s.grading_scale)
+        return round(s.final_score / scale * 100, 1) if scale else None
 
     graded = [p for s in subs if (p := pct(s)) is not None]
     p = student.student
@@ -130,11 +139,11 @@ async def _teacher_details(db: AsyncSession, student: User, groups: list[Group])
             {
                 "id": s.id,
                 "assignment_id": s.assignment_id,
-                "title": s.assignment.title,
-                "group_name": s.assignment.group.name,
+                "title": s.title,
+                "group_name": s.group_name,
                 "status": s.status,
                 "final_score": s.final_score,
-                "grading_scale": s.assignment.group.grading_scale,
+                "grading_scale": s.grading_scale,
                 "percent": pct(s),
                 "is_late": s.is_late,
                 "submitted_at": s.submitted_at,
@@ -142,9 +151,9 @@ async def _teacher_details(db: AsyncSession, student: User, groups: list[Group])
             for s in subs
         ],
         "missing": [
-            {"assignment_id": a.id, "title": a.title, "group_name": a.group.name, "due_at": a.due_at} for a in missing
+            {"assignment_id": a.id, "title": a.title, "group_name": a.group_name, "due_at": a.due_at} for a in missing
         ],
         "open": [
-            {"assignment_id": a.id, "title": a.title, "group_name": a.group.name, "due_at": a.due_at} for a in open_
+            {"assignment_id": a.id, "title": a.title, "group_name": a.group_name, "due_at": a.due_at} for a in open_
         ],
     }

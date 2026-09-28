@@ -29,6 +29,19 @@ def spawn(fn: Callable[..., Awaitable[None]], *args) -> None:
     task.add_done_callback(_tasks.discard)
 
 
+def spawn_later(delay: float, fn: Callable[..., Awaitable[None]], *args) -> None:
+    """Kechiktirilgan vazifa (AI limiti tugaganda qayta urinish). Server qayta ishga tushsa,
+    `resume_pending()` baribir topib oladi — holat bazada saqlanadi."""
+
+    async def later() -> None:
+        await asyncio.sleep(delay)
+        spawn(fn, *args)
+
+    task = asyncio.create_task(later())
+    _tasks.add(task)
+    task.add_done_callback(_tasks.discard)
+
+
 async def drain() -> None:
     """Testlar uchun: barcha fon vazifalari tugashini kutadi."""
     while _tasks:

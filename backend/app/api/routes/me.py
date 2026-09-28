@@ -43,17 +43,17 @@ async def upload_avatar(user: CurrentUser, db: DB, file: Annotated[UploadFile, F
     _, ext = sniff_image(data)
     storage = get_storage()
     old = user.avatar_key
-    user.avatar_key = storage.save(f"avatars/{user.id}", data, ext)
+    user.avatar_key = await storage.asave(f"avatars/{user.id}", data, ext)
     await db.commit()
     if old:
-        storage.delete(old)
+        await storage.adelete(old)
     return await me_out(db, user)
 
 
 @router.delete("/me/avatar", response_model=MeOut)
 async def delete_avatar(user: CurrentUser, db: DB) -> MeOut:
     if user.avatar_key:
-        get_storage().delete(user.avatar_key)
+        await get_storage().adelete(user.avatar_key)
         user.avatar_key = None
         await db.commit()
     return await me_out(db, user)

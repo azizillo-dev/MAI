@@ -14,8 +14,11 @@ from datetime import datetime, timedelta
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.cache import TTLCache
+from app.core.config import get_settings
 from app.core.security import utcnow
 from app.models import (
+    Assignment,
     BadgeAward,
     Group,
     GroupMember,
@@ -110,22 +113,33 @@ MEDALS = {1: ("month_gold", "Oy chempioni", "gold"), 2: ("month_silver", "Oyning
           3: ("month_bronze", "Oyning 3-o'rni", "bronze")}
 
 
-async def _graded(db: AsyncSession, student_id: uuid.UUID) -> list[Submission]:
-    return list(
-        await db.scalars(
-            select(Submission)
-            .where(Submission.student_id == student_id, Submission.status == SubmissionStatus.GRADED)
-            .order_by(Submission.submitted_at)
-        )
+@dataclass(frozen=True, slots=True)
+class GradedWork:
+    """Ko'rsatkichlar uchun kerakli minimum: to'liq Submission obyekti (bog'liqlari bilan) yuklanmaydi."""
+
+    final_score: float | None
+    grading_scale: str
+    subject: str
+    is_late: bool
+
+
+async def _graded(db: AsyncSession, student_id: uuid.UUID) -> list[GradedWork]:
+    rows = await db.execute(
+        select(Submission.final_score, Group.grading_scale, Group.subject, Submission.is_late)
+        .join(Assignment, Assignment.id == Submission.assignment_id)
+        .join(Group, Group.id == Assignment.group_id)
+        .where(Submission.student_id == student_id, Submission.status == SubmissionStatus.GRADED)
+        .order_by(Submission.submitted_at)
     )
+    return [GradedWork(*r) for r in rows]
 
 
-def _percent(s: Submission) -> float:
-    scale = float(s.assignment.group.grading_scale)
+def _percent(s: Submission | GradedWork) -> float:
+    scale = float(s.grading_scale if isinstance(s, GradedWork) else s.assignment.group.grading_scale)
     return (s.final_score or 0) / scale * 100 if scale else 0
 
 
-def compute_metrics(subs: list[Submission]) -> dict[str, int]:
+def compute_metrics(subs: list[GradedWork]) -> dict[str, int]:
     """Nishonlar va profil statistikasi uchun ko'rsatkichlar (faqat yakuniy baholangan ishlar)."""
     percents = [_percent(s) for s in subs]
     best_streak = streak = 0
@@ -142,7 +156,7 @@ def compute_metrics(subs: list[Submission]) -> dict[str, int]:
     subject_high: dict[str, int] = {}
     for s, p in zip(subs, percents, strict=True):
         if p >= 86:
-            subj = s.assignment.group.subject
+            subj = s.subject
             subject_high[subj] = subject_high.get(subj, 0) + 1
     return {
         "works": len(subs),
@@ -186,7 +200,11 @@ async def on_submission_final(db: AsyncSession, sub: Submission) -> None:
     if pts is None:
         if ev is not None:
             await db.delete(ev)
+            invalidate_stats(student_ids=[sub.student_id], group_id=sub.assignment.group_id,
+                             teacher_id=sub.assignment.group.teacher_id)
         return
+    invalidate_stats(student_ids=[sub.student_id], group_id=sub.assignment.group_id,
+                     teacher_id=sub.assignment.group.teacher_id)
     if ev is None:
         db.add(XpEvent(student_id=sub.student_id, group_id=sub.assignment.group_id, submission_id=sub.id,
                        points=pts, created_at=utcnow()))
@@ -209,10 +227,12 @@ def period_start(period: str, now: datetime | None = None) -> datetime | None:
     return None
 
 
-async def scope_students(db: AsyncSession, group: Group, scope: str) -> list[User]:
-    """scope=group: shu guruh; scope=teacher: shu ustozning barcha faol guruhlaridagi o'quvchilar."""
-    # Avval id'lar (bir o'quvchi bir nechta guruhda bo'lishi mumkin), keyin foydalanuvchilar.
-    # DISTINCT butun qatorga emas: profil bilan birga yuklanadigan JSON ustunlarini Postgres solishtira olmaydi.
+async def scope_students(db: AsyncSession, group: Group, scope: str):
+    """Reyting ishtirokchilari: faqat id, ism va rasm (to'liq profil yuklanmaydi).
+
+    scope=group: shu guruh; scope=teacher: shu ustozning barcha faol guruhlaridagi o'quvchilar.
+    Bir o'quvchi bir nechta guruhda bo'lishi mumkin: id'lar subquery orqali, takrorlanmaydi.
+    """
     ids = select(GroupMember.student_id).where(GroupMember.status == MemberStatus.ACTIVE)
     if scope == "teacher":
         ids = ids.join(Group, Group.id == GroupMember.group_id).where(
@@ -220,10 +240,37 @@ async def scope_students(db: AsyncSession, group: Group, scope: str) -> list[Use
         )
     else:
         ids = ids.where(GroupMember.group_id == group.id)
-    return list((await db.scalars(select(User).where(User.id.in_(ids)))).unique().all())
+    return list((await db.execute(
+        select(User.id, User.first_name, User.last_name, User.avatar_key).where(User.id.in_(ids))
+    )).all())
+
+
+# Reyting guruhdagi hamma o'quvchi uchun bir xil: har biri ochganda qaytadan hisoblanmaydi
+_boards = TTLCache(get_settings().stats_cache_seconds)
+_progress = TTLCache(get_settings().stats_cache_seconds)
+
+
+def invalidate_stats(*, student_ids=(), group_id=None, teacher_id=None) -> None:
+    """XP yoki a'zolik o'zgarganda: tegishli reyting va progress keshini tozalaydi."""
+    ids = set(student_ids)
+    if ids:
+        _progress.invalidate(lambda k: k in ids)
+    owners = {x for x in (group_id, teacher_id) if x is not None}
+    if owners:
+        _boards.invalidate(lambda k: k[1] in owners)
 
 
 async def leaderboard(db: AsyncSession, group: Group, scope: str, period: str) -> list[dict]:
+    key = ("teacher", group.teacher_id, period) if scope == "teacher" else ("group", group.id, period)
+    cached = _boards.get(key)
+    if cached is not None:
+        return cached
+    out = await _compute_leaderboard(db, group, scope, period)
+    _boards.set(key, out)
+    return out
+
+
+async def _compute_leaderboard(db: AsyncSession, group: Group, scope: str, period: str) -> list[dict]:
     students = await scope_students(db, group, scope)
     if not students:
         return []
@@ -250,7 +297,7 @@ async def leaderboard(db: AsyncSession, group: Group, scope: str, period: str) -
         out.append({
             "rank": rank,
             "student_id": u.id,
-            "name": u.full_name,
+            "name": f"{u.first_name} {u.last_name}",
             "avatar_url": signed_url(u.avatar_key) if u.avatar_key else None,
             "points": pts,
             "level": level_info(totals.get(u.id, 0))["level"],
@@ -306,6 +353,15 @@ async def award_monthly_medals(db: AsyncSession, group: Group) -> None:
 
 
 async def student_progress(db: AsyncSession, student: User) -> dict:
+    cached = _progress.get(student.id)
+    if cached is not None:
+        return cached
+    out = await _compute_progress(db, student)
+    _progress.set(student.id, out)
+    return out
+
+
+async def _compute_progress(db: AsyncSession, student: User) -> dict:
     subs = await _graded(db, student.id)
     m = compute_metrics(subs)
     xp = int(await db.scalar(select(func.coalesce(func.sum(XpEvent.points), 0)).where(XpEvent.student_id == student.id)))

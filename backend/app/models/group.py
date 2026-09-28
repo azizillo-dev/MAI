@@ -45,7 +45,7 @@ class Group(UUIDPk, Timestamps, Base):
     join_enabled: Mapped[bool] = mapped_column(Boolean, default=True, server_default=true())
     status: Mapped[str] = mapped_column(String(16), default=GroupStatus.ACTIVE)
 
-    teacher: Mapped[User] = relationship(lazy="joined")
+    teacher: Mapped[User] = relationship(lazy="selectin")
 
 
 class GroupMember(UUIDPk, Timestamps, Base):
@@ -57,8 +57,8 @@ class GroupMember(UUIDPk, Timestamps, Base):
     status: Mapped[str] = mapped_column(String(16))
     decided_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
-    group: Mapped[Group] = relationship(lazy="joined")
-    student: Mapped[User] = relationship(lazy="joined")
+    group: Mapped[Group] = relationship(lazy="selectin")
+    student: Mapped[User] = relationship(lazy="selectin")
 
 
 class JoinAttempt(UUIDPk, Base):

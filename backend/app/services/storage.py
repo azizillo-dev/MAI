@@ -4,6 +4,7 @@ Fayllar ochiq berilmaydi: telefon imzolangan, muddatli havola orqali oladi
 (`/media/<key>?exp=...&sig=...`). Havolani bilgan boshqa odam muddat tugagach ocholmaydi.
 """
 
+import asyncio
 import hashlib
 import hmac
 import secrets
@@ -71,6 +72,23 @@ class LocalStorage:
         if path.is_file():
             path.unlink()
 
+    def path_of(self, key: str) -> Path:
+        """Mavjud faylning diskdagi yo'li (nginx yoki FileResponse orqali berish uchun)."""
+        path = self._path(key)
+        if not path.is_file():
+            raise NotFound("FILE_NOT_FOUND", "Fayl topilmadi")
+        return path
+
+    # Disk bilan ishlash bloklovchi: server boshqa so'rovlarga javob berishda davom etishi uchun alohida oqimda
+    async def asave(self, folder: str, data: bytes, ext: str) -> str:
+        return await asyncio.to_thread(self.save, folder, data, ext)
+
+    async def aread(self, key: str) -> bytes:
+        return await asyncio.to_thread(self.read, key)
+
+    async def adelete(self, key: str) -> None:
+        await asyncio.to_thread(self.delete, key)
+
 
 def _sign(key: str, exp: int) -> str:
     secret = get_settings().jwt_secret.encode()
@@ -78,8 +96,14 @@ def _sign(key: str, exp: int) -> str:
 
 
 def signed_url(key: str) -> str:
+    """Muddat vaqt oynasiga yaxlitlanadi: bitta oyna davomida havola o'zgarmaydi.
+
+    Aks holda har so'rovda yangi havola chiqib, telefon bir xil rasmni qayta-qayta yuklab olardi.
+    Havola kamida bitta, ko'pi bilan ikkita oyna amal qiladi.
+    """
     s = get_settings()
-    exp = int(time.time()) + s.media_url_ttl_seconds
+    window = s.media_url_ttl_seconds
+    exp = (int(time.time()) // window + 2) * window
     return f"{s.public_api_url}/media/{key}?exp={exp}&sig={_sign(key, exp)}"
 
 

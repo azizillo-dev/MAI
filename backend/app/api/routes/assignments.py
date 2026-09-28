@@ -3,10 +3,13 @@ from datetime import datetime
 from typing import Annotated, Literal
 
 from fastapi import APIRouter, File, Form, Query, UploadFile
-from fastapi.responses import Response
+from fastapi.responses import FileResponse, Response
 from sqlalchemy import func, select
+from sqlalchemy.orm import noload
+from sqlalchemy.orm.attributes import set_committed_value
 
 from app.api.deps import DB, CurrentStudent, CurrentTeacher
+from app.core.config import get_settings
 from app.core.errors import AppError
 from app.models import (
     Assignment,
@@ -134,13 +137,18 @@ async def _read_uploads(files: list[UploadFile] | None) -> list[bytes]:
 @router.get("/media/{key:path}", include_in_schema=False)
 async def media(key: str, exp: int, sig: str) -> Response:
     verify_signature(key, exp, sig)
-    data = get_storage().read(key)
+    storage = get_storage()
+    path = storage.path_of(key)
     ext = key[key.rfind("."):]
-    return Response(
-        data,
-        media_type=MEDIA_TYPES.get(ext, "application/octet-stream"),
-        headers={"Cache-Control": "private, max-age=3600"},
-    )
+    media_type = MEDIA_TYPES.get(ext, "application/octet-stream")
+    # Har bir fayl nomi takrorlanmas va mazmuni o'zgarmaydi: telefon uni muddatsiz saqlashi mumkin
+    headers = {"Cache-Control": "private, max-age=2592000, immutable"}
+    prefix = get_settings().media_accel_prefix
+    if prefix:
+        # Imzoni Python tekshirdi, faylni nginx diskdan to'g'ridan-to'g'ri beradi (Python band bo'lmaydi)
+        headers["X-Accel-Redirect"] = prefix.rstrip("/") + "/" + key
+        return Response(media_type=media_type, headers=headers)
+    return FileResponse(path, media_type=media_type, headers=headers)
 
 
 # ---------------------------------------------------------------- Kitoblar (o'qituvchi)
@@ -261,7 +269,7 @@ async def delete_assignment(assignment_id: uuid.UUID, teacher: CurrentTeacher, d
     if await db.scalar(select(func.count()).select_from(Submission).where(Submission.assignment_id == a.id)):
         raise AppError("HAS_SUBMISSIONS", "O'quvchilar ish topshirgan vazifani o'chirib bo'lmaydi", 409)
     for img in a.images:
-        get_storage().delete(img.file_key)
+        await get_storage().adelete(img.file_key)
     await db.delete(a)
     await db.commit()
     return Message()
@@ -270,7 +278,12 @@ async def delete_assignment(assignment_id: uuid.UUID, teacher: CurrentTeacher, d
 @router.get("/api/v1/assignments/{assignment_id}/submissions", response_model=list[SubmissionOut])
 async def assignment_submissions(assignment_id: uuid.UUID, teacher: CurrentTeacher, db: DB) -> list[SubmissionOut]:
     a = await svc.get_teacher_assignment(db, teacher, assignment_id)
-    rows = list(await db.scalars(select(Submission).where(Submission.assignment_id == a.id)))
+    # Vazifa qo'limizda bor: har bir ish uchun qayta yuklanmaydi
+    rows = list(await db.scalars(
+        select(Submission).options(noload(Submission.assignment)).where(Submission.assignment_id == a.id)
+    ))
+    for s in rows:
+        set_committed_value(s, "assignment", a)
     order = {SubmissionStatus.NEEDS_REVIEW: 0, SubmissionStatus.FAILED: 0, SubmissionStatus.GRADING: 1}
     rows.sort(key=lambda s: (order.get(s.status, 2), s.student.last_name))
     return [submission_out(s, for_teacher=True) for s in rows]
@@ -309,10 +322,27 @@ async def review(submission_id: uuid.UUID, body: ReviewIn, teacher: CurrentTeach
 # ---------------------------------------------------------------- O'quvchi
 
 
-async def _student_view(db: DB, student, a: Assignment) -> StudentAssignmentOut:
-    sub = await db.scalar(
-        select(Submission).where(Submission.assignment_id == a.id, Submission.student_id == student.id)
+_NOT_LOADED = object()
+
+
+def _own_submissions(student, assignments: list[Assignment]):
+    """O'quvchining shu vazifalardagi ishlari. Vazifa va o'quvchi qo'limizda bor — qayta yuklanmaydi."""
+    return select(Submission).options(noload(Submission.assignment), noload(Submission.student)).where(
+        Submission.student_id == student.id, Submission.assignment_id.in_([a.id for a in assignments])
     )
+
+
+def _attach(sub: Submission, a: Assignment, student) -> Submission:
+    set_committed_value(sub, "assignment", a)
+    set_committed_value(sub, "student", student)
+    return sub
+
+
+async def _student_view(db: DB, student, a: Assignment, sub: Submission | None | object = _NOT_LOADED) -> StudentAssignmentOut:
+    if sub is _NOT_LOADED:
+        sub = await db.scalar(_own_submissions(student, [a]))
+        if sub is not None:
+            _attach(sub, a, student)
     return StudentAssignmentOut(
         id=a.id,
         group_id=a.group_id,
@@ -352,11 +382,20 @@ async def student_assignments(
             Group.status == GroupStatus.ACTIVE,
             Assignment.status == AssignmentStatus.PUBLISHED,
         )
-        .order_by(Assignment.due_at)
+        # Ro'yxat cheksiz o'smasin: eng so'nggi N ta (ochiqlari muddati eng kech — doim kiradi)
+        .order_by(Assignment.due_at.desc())
+        .limit(get_settings().student_tasks_limit)
     )
     if group_id:
         q = q.where(Assignment.group_id == group_id)
-    return [await _student_view(db, student, a) for a in await db.scalars(q)]
+    assignments = list(await db.scalars(q))[::-1]
+    # Har bir vazifa uchun alohida so'rov emas: o'quvchining topshiriqlari bitta so'rovda
+    by_id = {a.id: a for a in assignments}
+    subs = {
+        s.assignment_id: _attach(s, by_id[s.assignment_id], student)
+        for s in await db.scalars(_own_submissions(student, assignments))
+    } if assignments else {}
+    return [await _student_view(db, student, a, subs.get(a.id)) for a in assignments]
 
 
 @router.get("/api/v1/student/assignments/{assignment_id}", response_model=StudentAssignmentOut)

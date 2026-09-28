@@ -264,6 +264,13 @@ def _limit_error(plan) -> Forbidden:
     )
 
 
+def _invalidate_stats(**kwargs) -> None:
+    # gamification groups'dan import qiladi: aylanma importni oldini olish uchun shu yerda
+    from app.services.gamification import invalidate_stats
+
+    invalidate_stats(**kwargs)
+
+
 async def decide_member(db: AsyncSession, group: Group, student_id: uuid.UUID, action: str) -> GroupMember:
     member = await db.scalar(
         select(GroupMember).where(GroupMember.group_id == group.id, GroupMember.student_id == student_id)
@@ -291,6 +298,7 @@ async def decide_member(db: AsyncSession, group: Group, student_id: uuid.UUID, a
     member.decided_at = utcnow()
     await db.commit()
     await db.refresh(member)
+    _invalidate_stats(student_ids=[student_id], group_id=group.id, teacher_id=group.teacher_id)
     return member
 
 
@@ -317,6 +325,7 @@ async def approve_all(db: AsyncSession, group: Group) -> dict[str, int]:
         if not counted:
             used += 1
     await db.commit()
+    _invalidate_stats(student_ids=[m.student_id for m in pending], group_id=group.id, teacher_id=group.teacher_id)
     return {"approved": approved, "left_pending": len(pending) - approved, "limit": plan.max_students}
 
 
