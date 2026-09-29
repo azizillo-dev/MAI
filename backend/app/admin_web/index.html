@@ -108,6 +108,7 @@
       <button data-page="requests">🧾 So'rovlar <span class="badge warning hidden" id="pendingBadge"></span></button>
       <button data-page="teachers">👩‍🏫 O'qituvchilar</button>
       <button data-page="plans">💎 Tariflar</button>
+      <button data-page="promo">🎟 Promo kodlar</button>
       <button data-page="support">💬 Murojaatlar <span class="badge warning hidden" id="supportBadge"></span></button>
       <button data-page="jetons">🪙 Jetonlar <span class="badge warning hidden" id="jetonBadge"></span></button>
       <button data-page="site">🌐 Sayt</button>
@@ -199,6 +200,7 @@ async function render() {
     if (page === "requests") await requests(main, "pending");
     if (page === "teachers") await teachers(main, "");
     if (page === "plans") await plansPage(main);
+    if (page === "promo") await promoPage(main);
     if (page === "support") await supportPage(main, "open");
     if (page === "jetons") await jetonsPage(main, "pending");
     if (page === "site") await sitePage(main);
@@ -250,7 +252,7 @@ async function requests(main, status) {
     <tr>
       <td><strong>${esc(r.teacher.name)}</strong><div class="muted">${esc(r.teacher.email || r.teacher.phone || "")}</div></td>
       <td>${esc(r.plan.name)} · ${r.months} oy</td>
-      <td><strong>${money(r.amount_uzs)}</strong></td>
+      <td><strong>${money(r.amount_uzs)}</strong>${r.promo_code ? `<div class="muted">🎟 ${esc(r.promo_code)}: −${money(r.discount_uzs)}</div>` : ""}</td>
       <td>${date(r.created_at)}</td>
       <td>${statusBadge(r.status)}${r.teacher_note ? `<div class="muted">${esc(r.teacher_note)}</div>` : ""}</td>
       <td>${r.status === "pending" ? `<div class="row">
@@ -335,6 +337,122 @@ async function plansPage(main) {
         name: d.get("name"), price_uzs: +d.get("price_uzs"), max_groups: +d.get("max_groups"),
         max_students: +d.get("max_students"), is_active: d.get("is_active") === "on"})});
       toast("Saqlandi");
+    } catch (err) { toast(err.message); }
+  });
+}
+
+// ---------------------------------------------------------------- Promo kodlar
+const promoValue = (p) => p.kind === "percent" ? `${p.value}%` : money(p.value);
+
+function randomCode() {
+  const abc = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // adashtiradigan O/0, I/1 yo'q
+  let out = "MENTOR-";
+  for (let i = 0; i < 5; i++) out += abc[Math.floor(Math.random() * abc.length)];
+  return out;
+}
+
+async function promoPage(main) {
+  const [list, allPlans] = await Promise.all([api("/admin/promo-codes"), api("/admin/plans")]);
+  const paid = allPlans.filter((p) => p.code !== "trial");
+  const planName = Object.fromEntries(allPlans.map((p) => [p.code, p.name]));
+  const active = list.filter((p) => p.is_active && !p.expired);
+  const sum = (k) => list.reduce((a, p) => a + (p[k] || 0), 0);
+  const stat = (v, l) => `<div class="card stat"><div class="v">${v}</div><div class="l">${l}</div></div>`;
+  const state = (p) => !p.is_active ? '<span class="badge">O\'chirilgan</span>'
+    : p.expired ? '<span class="badge danger">Muddati o\'tgan</span>'
+    : (p.max_uses && p.uses >= p.max_uses) ? '<span class="badge warning">Limit tugagan</span>'
+    : statusBadge("active");
+  const rows = list.map((p) => `
+    <tr>
+      <td><div class="row"><strong style="font-family:ui-monospace,Consolas,monospace;letter-spacing:.03em">${esc(p.code)}</strong>
+        <button class="btn sm ghost" data-copy="${esc(p.code)}" title="Nusxalash">⧉</button></div>
+        ${p.note ? `<div class="muted">${esc(p.note)}</div>` : ""}</td>
+      <td><strong>−${promoValue(p)}</strong></td>
+      <td>${p.plan_code ? esc(planName[p.plan_code] || p.plan_code) : '<span class="muted">Barchasi</span>'}</td>
+      <td>${p.uses} / ${p.max_uses ?? "∞"}<div class="muted">${p.approved} tasdiqlangan</div></td>
+      <td>${p.valid_until ? date(p.valid_until) : '<span class="muted">Cheksiz</span>'}</td>
+      <td>${money(p.revenue_uzs)}<div class="muted">chegirma ${money(p.discount_uzs)}</div></td>
+      <td>${state(p)}</td>
+      <td><div class="row">
+        <button class="btn sm ghost" data-toggle="${p.id}" data-on="${p.is_active}">${p.is_active ? "O'chirish" : "Yoqish"}</button>
+        ${p.uses === 0 && p.approved === 0 ? `<button class="btn sm ghost" data-del="${p.id}" title="Butunlay o'chirish">🗑</button>` : ""}
+      </div></td>
+    </tr>`).join("");
+
+  main.innerHTML = `
+    <div class="topbar"><h2>Promo kodlar</h2></div>
+    <div class="cards">
+      ${stat(active.length, "Faol kodlar")}
+      ${stat(sum("uses"), "Ishlatilgan (kutilayotgan + tasdiqlangan)")}
+      ${stat(money(sum("discount_uzs")), "Berilgan chegirma")}
+      ${stat(money(sum("revenue_uzs")), "Promo kod bilan tushum")}
+    </div>
+    <form class="card" id="promoForm" style="margin-bottom:18px">
+      <strong>Yangi promo kod</strong>
+      <div class="plan-grid" style="margin-top:4px">
+        <div><label>Kod</label><div class="row" style="flex-wrap:nowrap">
+          <input name="code" required minlength="3" maxlength="32" placeholder="USTOZ20" style="text-transform:uppercase">
+          <button class="btn ghost" type="button" id="promoRandom" title="Tasodifiy kod">🎲</button></div></div>
+        <div><label>Chegirma turi</label><select name="kind">
+          <option value="percent">Foiz (%)</option><option value="amount">Summa (so'm)</option></select></div>
+        <div><label id="promoValueLabel">Chegirma, %</label><input name="value" type="number" min="1" max="100" required value="20"></div>
+        <div><label>Qaysi tarif uchun</label><select name="plan_code">
+          <option value="">Barcha tariflar</option>
+          ${paid.map((p) => `<option value="${esc(p.code)}">${esc(p.name)} — ${money(p.price_uzs)}/oy</option>`).join("")}</select></div>
+        <div><label>Nechta o'qituvchi ishlata oladi</label><input name="max_uses" type="number" min="1" placeholder="Bo'sh — cheksiz"></div>
+        <div><label>Amal qilish muddati (shu kun oxirigacha)</label><input name="valid_until" type="date"></div>
+      </div>
+      <label>Izoh (faqat adminlar ko'radi)</label><input name="note" maxlength="255" placeholder="Masalan: 12-maktab o'qituvchilari uchun">
+      <div class="row" style="justify-content:space-between;margin-top:14px">
+        <span class="muted" id="promoPreview"></span>
+        <button class="btn" type="submit">Yaratish</button>
+      </div>
+      <div class="muted" style="margin-top:8px">Har bir o'qituvchi bitta kodni bir marta ishlatadi. Admin so'rovni rad etsa, kod qayta ishlatilishi mumkin.</div>
+    </form>
+    <div class="card table-wrap">${list.length ? `<table><thead><tr><th>Kod</th><th>Chegirma</th><th>Tarif</th><th>Ishlatilgan</th><th>Muddat</th><th>Tushum</th><th>Holat</th><th></th></tr></thead><tbody>${rows}</tbody></table>`
+      : '<div class="empty">Hali promo kod yo\'q</div>'}</div>`;
+
+  const f = $("#promoForm");
+  const preview = () => {
+    const d = new FormData(f);
+    const plan = paid.find((p) => p.code === d.get("plan_code")) || paid[0];
+    const v = +d.get("value") || 0;
+    if (!plan || !v) { $("#promoPreview").textContent = ""; return; }
+    const off = d.get("kind") === "percent" ? Math.round(plan.price_uzs * Math.min(v, 100) / 100) : Math.min(v, plan.price_uzs);
+    $("#promoPreview").textContent = `Misol: ${plan.name}, 1 oy — ${money(plan.price_uzs)} → ${money(plan.price_uzs - off)}`;
+  };
+  f.kind.onchange = () => {
+    const pct = f.kind.value === "percent";
+    $("#promoValueLabel").textContent = pct ? "Chegirma, %" : "Chegirma, so'm";
+    f.value.max = pct ? 100 : 100000000;
+    f.value.value = pct ? 20 : 30000;
+    preview();
+  };
+  f.oninput = preview; preview();
+  $("#promoRandom").onclick = () => { f.code.value = randomCode(); };
+  f.onsubmit = async (e) => {
+    e.preventDefault();
+    const d = new FormData(f);
+    const body = {code: d.get("code").trim(), kind: d.get("kind"), value: +d.get("value"),
+      plan_code: d.get("plan_code") || null, max_uses: d.get("max_uses") ? +d.get("max_uses") : null,
+      valid_until: d.get("valid_until") || null, note: d.get("note").trim() || null};
+    try { const p = await api("/admin/promo-codes", {method: "POST", body: JSON.stringify(body)}); toast(`${p.code} yaratildi`); promoPage(main); }
+    catch (err) { toast(err.message); }
+  };
+  main.querySelectorAll("[data-copy]").forEach((b) => b.onclick = async () => {
+    try { await navigator.clipboard.writeText(b.dataset.copy); toast("Nusxalandi: " + b.dataset.copy); } catch { toast(b.dataset.copy); }
+  });
+  main.querySelectorAll("[data-toggle]").forEach((b) => b.onclick = async () => {
+    const on = b.dataset.on !== "true";
+    try { await api("/admin/promo-codes/" + b.dataset.toggle, {method: "PATCH", body: JSON.stringify({is_active: on})}); toast(on ? "Yoqildi" : "O'chirildi"); promoPage(main); }
+    catch (err) { toast(err.message); }
+  });
+  main.querySelectorAll("[data-del]").forEach((b) => b.onclick = async () => {
+    if (!confirm("Promo kod butunlay o'chirilsinmi?")) return;
+    try {
+      const res = await fetch(API + "/admin/promo-codes/" + b.dataset.del, {method: "DELETE", headers: {Authorization: "Bearer " + token}});
+      if (!res.ok) throw new Error((await res.json().catch(() => ({})))?.error?.message || "Xatolik");
+      toast("O'chirildi"); promoPage(main);
     } catch (err) { toast(err.message); }
   });
 }

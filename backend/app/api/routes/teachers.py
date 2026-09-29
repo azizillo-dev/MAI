@@ -13,7 +13,7 @@ from app.schemas.common import Schema
 from sqlalchemy import select
 
 from app.models import Plan, PlanRequest
-from app.services import onboarding, plans
+from app.services import onboarding, plans, promo
 from app.services.assistant_tools import AssistantTools
 from app.services.dashboard import teacher_dashboard
 
@@ -93,27 +93,49 @@ class PlanRequestIn(Schema):
     plan_code: str = Field(max_length=32)
     months: int = Field(ge=1, le=12)
     note: str | None = Field(default=None, max_length=500)
+    promo_code: str | None = Field(default=None, max_length=32)
+
+
+class PromoCheckIn(Schema):
+    plan_code: str = Field(max_length=32)
+    months: int = Field(ge=1, le=12)
+    code: str = Field(min_length=1, max_length=32)
 
 
 def _request_out(r: PlanRequest) -> dict:
     return {
         "id": r.id, "plan": plans.plan_dict(r.plan), "months": r.months, "amount_uzs": r.amount_uzs,
+        "discount_uzs": r.discount_uzs, "promo_code": r.promo.code if r.promo else None,
         "status": r.status, "admin_note": r.admin_note, "created_at": r.created_at, "decided_at": r.decided_at,
     }
+
+
+async def _buyable_plan(db, code: str) -> Plan:
+    plan = await plans.get_plan(db, code)
+    if plan is None or not plan.is_active or plan.code == plans.TRIAL:
+        raise AppError("PLAN_NOT_FOUND", "Bunday tarif yo'q", 404)
+    return plan
+
+
+@router.post("/me/promo-check")
+async def check_promo(body: PromoCheckIn, teacher: CurrentTeacher, db: DB) -> dict:
+    """So'rov yuborishdan oldin: promo kod bilan yakuniy narx qancha bo'lishini ko'rsatadi."""
+    plan = await _buyable_plan(db, body.plan_code)
+    return (await promo.quote(db, teacher.id, plan, body.months, body.code)).as_dict()
 
 
 @router.post("/me/plan-requests", status_code=201)
 async def request_plan(body: PlanRequestIn, teacher: CurrentTeacher, db: DB) -> dict:
     """Tarifga so'rov: admin to'lovni tasdiqlagach tarif darhol yoqiladi."""
-    plan = await plans.get_plan(db, body.plan_code)
-    if plan is None or not plan.is_active or plan.code == plans.TRIAL:
-        raise AppError("PLAN_NOT_FOUND", "Bunday tarif yo'q", 404)
+    plan = await _buyable_plan(db, body.plan_code)
     pending = await db.scalar(select(PlanRequest.id).where(
         PlanRequest.teacher_id == teacher.id, PlanRequest.status == "pending"))
     if pending:
         raise AppError("REQUEST_PENDING", "Oldingi so'rovingiz ko'rib chiqilmoqda. Admin tez orada bog'lanadi", 409)
-    r = PlanRequest(teacher_id=teacher.id, plan_id=plan.id, months=body.months,
-                    amount_uzs=plan.price_uzs * body.months, teacher_note=body.note)
+    q = await promo.quote(db, teacher.id, plan, body.months, body.promo_code, lock=True)
+    r = PlanRequest(teacher_id=teacher.id, plan_id=plan.id, months=body.months, amount_uzs=q.amount_uzs,
+                    discount_uzs=q.discount_uzs, promo_code_id=q.promo.id if q.promo else None,
+                    teacher_note=body.note)
     db.add(r)
     await db.commit()
     await db.refresh(r)

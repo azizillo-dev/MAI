@@ -26,6 +26,21 @@ class Plan(UUIDPk, Timestamps, Base):
     sort_order: Mapped[int] = mapped_column(Integer, default=0)
 
 
+class PromoCode(UUIDPk, Timestamps, Base):
+    """Tarif uchun chegirma kodi. Admin paneldan yaratiladi; bitta o'qituvchi bitta kodni bir marta ishlatadi."""
+
+    __tablename__ = "promo_codes"
+
+    code: Mapped[str] = mapped_column(String(32), unique=True)  # har doim katta harflarda
+    kind: Mapped[str] = mapped_column(String(16))  # percent | amount
+    value: Mapped[int] = mapped_column(Integer)  # foiz (1-100) yoki so'm
+    plan_code: Mapped[str | None] = mapped_column(String(32))  # None — barcha tariflar uchun
+    max_uses: Mapped[int | None] = mapped_column(Integer)  # None — cheksiz
+    valid_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    note: Mapped[str | None] = mapped_column(String(255))  # admin uchun izoh: kimga, qaysi aksiya
+
+
 class PlanRequest(UUIDPk, Timestamps, Base):
     """To'lov tizimi ulanmaguncha: o'qituvchi tarif so'raydi, admin to'lovni tekshirib tasdiqlaydi."""
 
@@ -34,8 +49,11 @@ class PlanRequest(UUIDPk, Timestamps, Base):
     teacher_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
     plan_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("plans.id"))
     months: Mapped[int] = mapped_column(Integer, default=1)
-    # So'rov paytidagi narx (keyin narx o'zgarsa ham tushum to'g'ri hisoblanadi)
+    # So'rov paytidagi to'lanadigan summa, chegirmadan keyin (tushum shu bilan hisoblanadi)
     amount_uzs: Mapped[int] = mapped_column(Integer)
+    discount_uzs: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
+    promo_code_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("promo_codes.id", ondelete="SET NULL"), index=True)
     status: Mapped[str] = mapped_column(String(16), default="pending", index=True)  # pending | approved | rejected
     teacher_note: Mapped[str | None] = mapped_column(String(500))
     admin_note: Mapped[str | None] = mapped_column(String(500))
@@ -44,6 +62,7 @@ class PlanRequest(UUIDPk, Timestamps, Base):
 
     plan: Mapped[Plan] = relationship(lazy="joined")
     teacher: Mapped["User"] = relationship(lazy="joined", foreign_keys=[teacher_id])
+    promo: Mapped[PromoCode | None] = relationship(lazy="joined")
 
 
 class Subscription(UUIDPk, Timestamps, Base):

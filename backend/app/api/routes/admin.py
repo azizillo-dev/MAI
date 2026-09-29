@@ -5,7 +5,7 @@ Admin email + parol bilan kiradi (akkaunt `python -m app.cli create-admin` bilan
 
 import asyncio
 import uuid
-from datetime import timedelta
+from datetime import date, timedelta
 from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, Query, Request
@@ -26,6 +26,7 @@ from app.models import (
     MemberStatus,
     Plan,
     PlanRequest,
+    PromoCode,
     Role,
     Submission,
     SupportMessage,
@@ -33,7 +34,7 @@ from app.models import (
 )
 from app.schemas.auth import TokensOut
 from app.schemas.common import Schema
-from app.services import jetons, plans, sessions, site
+from app.services import jetons, plans, promo, sessions, site
 from app.services.assignments import TASHKENT
 
 router = APIRouter(prefix="/admin", tags=["admin"])
@@ -121,6 +122,8 @@ def _request(r: PlanRequest) -> dict:
         "plan": plans.plan_dict(r.plan),
         "months": r.months,
         "amount_uzs": r.amount_uzs,
+        "discount_uzs": r.discount_uzs,
+        "promo_code": r.promo.code if r.promo else None,
         "status": r.status,
         "teacher_note": r.teacher_note,
         "admin_note": r.admin_note,
@@ -242,6 +245,88 @@ async def update_plan(plan_id: uuid.UUID, body: PlanUpdateIn, admin: CurrentAdmi
     await db.commit()
     await db.refresh(p)
     return _plan(p)
+
+
+# ---------------------------------------------------------------- Promo kodlar
+
+
+@router.get("/promo-codes")
+async def list_promo_codes(admin: CurrentAdmin, db: DB) -> list[dict]:
+    st = await promo.stats(db)
+    rows = await db.scalars(select(PromoCode).order_by(PromoCode.created_at.desc()))
+    return [promo.promo_dict(p, st.get(p.id)) for p in rows]
+
+
+class PromoIn(Schema):
+    code: str = Field(min_length=3, max_length=32)
+    kind: Literal["percent", "amount"]
+    value: int = Field(ge=1, le=100_000_000)
+    plan_code: str | None = Field(default=None, max_length=32)
+    max_uses: int | None = Field(default=None, ge=1, le=1_000_000)
+    valid_until: date | None = None
+    note: str | None = Field(default=None, max_length=255)
+
+
+async def _check_plan_code(db, code: str | None) -> None:
+    if code and await plans.get_plan(db, code) is None:
+        raise AppError("PLAN_NOT_FOUND", "Bunday tarif yo'q", 422)
+
+
+@router.post("/promo-codes", status_code=201)
+async def create_promo_code(body: PromoIn, admin: CurrentAdmin, db: DB) -> dict:
+    code = promo.normalize(body.code)
+    if not promo.CODE_RE.match(code):
+        raise AppError("PROMO_CODE_FORMAT", "Kod faqat lotin harflari, raqamlar, - va _ dan iborat bo'lsin (3–32 belgi)", 422)
+    if body.kind == "percent" and body.value > 100:
+        raise AppError("PROMO_VALUE", "Foiz 1 dan 100 gacha bo'lishi kerak", 422)
+    await _check_plan_code(db, body.plan_code)
+    if await db.scalar(select(PromoCode.id).where(PromoCode.code == code)):
+        raise AppError("PROMO_EXISTS", "Bunday kod allaqachon bor", 409)
+    p = PromoCode(code=code, kind=body.kind, value=body.value, plan_code=body.plan_code or None,
+                  max_uses=body.max_uses, note=body.note,
+                  valid_until=promo.end_of_day(body.valid_until) if body.valid_until else None)
+    db.add(p)
+    await db.commit()
+    await db.refresh(p)
+    return promo.promo_dict(p)
+
+
+class PromoUpdateIn(Schema):
+    is_active: bool | None = None
+    max_uses: int | None = Field(default=None, ge=1, le=1_000_000)
+    valid_until: date | None = None
+    note: str | None = Field(default=None, max_length=255)
+
+
+@router.patch("/promo-codes/{promo_id}")
+async def update_promo_code(promo_id: uuid.UUID, body: PromoUpdateIn, admin: CurrentAdmin, db: DB) -> dict:
+    """null yuborilgan maydon tozalanadi (masalan limit yoki muddatni olib tashlash)."""
+    p = await db.get(PromoCode, promo_id)
+    if p is None:
+        raise NotFound("PROMO_NOT_FOUND", "Promo kod topilmadi")
+    data = body.model_dump(exclude_unset=True)
+    if "is_active" in data and data["is_active"] is not None:
+        p.is_active = data["is_active"]
+    if "max_uses" in data:
+        p.max_uses = data["max_uses"]
+    if "valid_until" in data:
+        p.valid_until = promo.end_of_day(data["valid_until"]) if data["valid_until"] else None
+    if "note" in data:
+        p.note = data["note"]
+    await db.commit()
+    await db.refresh(p)
+    return promo.promo_dict(p, (await promo.stats(db)).get(p.id))
+
+
+@router.delete("/promo-codes/{promo_id}", status_code=204)
+async def delete_promo_code(promo_id: uuid.UUID, admin: CurrentAdmin, db: DB) -> None:
+    p = await db.get(PromoCode, promo_id)
+    if p is None:
+        raise NotFound("PROMO_NOT_FOUND", "Promo kod topilmadi")
+    if await db.scalar(select(PlanRequest.id).where(PlanRequest.promo_code_id == p.id).limit(1)):
+        raise AppError("PROMO_IN_USE", "Bu kod so'rovlarda ishlatilgan — o'chirish o'rniga faolsizlantiring", 409)
+    await db.delete(p)
+    await db.commit()
 
 
 # ---------------------------------------------------------------- Guruhlar (qisqa ko'rinish)

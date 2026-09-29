@@ -36,7 +36,7 @@
     trial: { code: 'trial', name: 'Sinov (14 kun)', price_uzs: 0, max_groups: 1, max_students: 30 },
     stats: null,
     downloads: {
-      version: '1.1.0', arm64_url: '/downloads/MentorAI-arm64.apk', legacy_url: '/downloads/MentorAI-eski-telefonlar.apk',
+      version: '1.1.1', arm64_url: '/downloads/MentorAI-arm64.apk', legacy_url: '/downloads/MentorAI-eski-telefonlar.apk',
       arm64_size_mb: 30, legacy_size_mb: 26, note: 'Android 7.0 va undan yuqori',
     },
     secret_enabled: true,
