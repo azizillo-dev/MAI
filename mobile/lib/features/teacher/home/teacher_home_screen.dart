@@ -252,19 +252,12 @@ class _HeroHeader extends ConsumerWidget {
               ),
               GestureDetector(
                 onTap: () => context.go('/teacher/profile'),
-                child: Container(
-                  width: 46,
-                  height: 46,
-                  alignment: Alignment.center,
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.2),
-                    shape: BoxShape.circle,
-                    border: Border.all(color: Colors.white.withValues(alpha: 0.35)),
-                  ),
-                  child: Text(
-                    me?.initials ?? '',
-                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 16),
-                  ),
+                child: Avatar(
+                  initials: me?.initials ?? '',
+                  imageUrl: me?.avatarUrl,
+                  size: 46,
+                  color: Colors.white,
+                  ring: Colors.white.withValues(alpha: 0.6),
                 ),
               ),
             ],

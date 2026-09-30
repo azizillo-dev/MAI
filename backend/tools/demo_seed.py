@@ -3,7 +3,7 @@
     DATABASE_URL=sqlite+aiosqlite:///D:/mentor_AI/backend/demo.db MEDIA_ROOT=demo_media \
         python -m tools.demo_seed
 
-Kirish: o'qituvchi demo.ustoz@mentorai.uz, o'quvchi demo.oquvchi@mentorai.uz (kod dev rejimda ekranda chiqadi).
+Kirish: o‘qituvchi azizillonabiyev52@gmail.com, o'quvchi demo.oquvchi@mentorai.uz (kod dev rejimda ekranda chiqadi).
 """
 
 import asyncio
@@ -145,7 +145,7 @@ async def main() -> None:
 
         answers = {"subjects": ["math", "english"], "student_levels": ["grade_5_9"], "teaching_place": "learning_center",
                    "grading_scale": "5", "checking_style": "balanced", "feedback_language": "uz"}
-        teacher = User(email="demo.ustoz@mentorai.uz", role="teacher", first_name="Dilnoza", last_name="Karimova",
+        teacher = User(email="azizillonabiyev52@gmail.com", role="teacher", first_name="Azizillo", last_name="Nabiyev",
                        locale="uz", is_active=True)
         db.add(teacher)
         await db.flush()
@@ -270,7 +270,7 @@ async def main() -> None:
         for sid in student_ids:
             await evaluate_badges(db, sid)
         await db.commit()
-    print(f"Demo baza tayyor: {len(student_ids)} o'quvchi. O'qituvchi: demo.ustoz@mentorai.uz, "
+    print(f"Demo baza tayyor: {len(student_ids)} o'quvchi. O‘qituvchi: azizillonabiyev52@gmail.com, "
           f"o'quvchi: demo.oquvchi@mentorai.uz")
 
 
