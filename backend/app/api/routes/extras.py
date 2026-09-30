@@ -3,7 +3,7 @@
 import uuid
 from typing import Literal
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Response
 from pydantic import Field
 from sqlalchemy import select
 
@@ -98,6 +98,13 @@ async def gift_jeton(body: GiftIn, teacher: CurrentTeacher, db: DB) -> dict:
 @router.get("/site/public")
 async def site_public(db: DB) -> dict:
     return await site.public_info(db)
+
+
+@router.get("/site/founders/{fid}/photo", include_in_schema=False)
+async def founder_photo(fid: str, db: DB) -> Response:
+    # Havolada rasm versiyasi (?v=) bor — rasm almashsa havola ham o'zgaradi, shuning uchun uzoq keshlaymiz
+    return Response(await site.founder_photo(db, fid), media_type="image/jpeg",
+                    headers={"Cache-Control": "public, max-age=31536000, immutable"})
 
 
 class SecretIn(Schema):

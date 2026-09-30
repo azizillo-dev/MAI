@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 
 import '../../core/network/api_exception.dart';
 import '../../core/theme/app_colors.dart';
@@ -13,6 +14,9 @@ import '../auth/application/auth_controller.dart';
 import '../auth/data/auth_models.dart';
 import '../auth/data/auth_repository.dart';
 import 'profile_screen.dart' show pickAvatar;
+
+/// Ilova versiyasi pubspec.yaml'dan (qo'lda yozilmaydi — har bir relizda o'zi yangilanadi).
+final appVersionProvider = FutureProvider<String>((ref) async => (await PackageInfo.fromPlatform()).version);
 
 /// Sozlamalar: profilni tahrirlash, ko'rinish (tema, rang), til, bildirishnomalar, hisob.
 class SettingsScreen extends ConsumerWidget {
@@ -125,7 +129,7 @@ class SettingsScreen extends ConsumerWidget {
           const SizedBox(height: 18),
           Center(
             child: Text(
-              'Mentor AI · 0.1.0',
+              'Mentor AI · ${ref.watch(appVersionProvider).value ?? ''}',
               style: context.text.bodySmall?.copyWith(color: context.colors.onSurfaceVariant),
             ),
           ),

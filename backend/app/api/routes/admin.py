@@ -8,7 +8,7 @@ import uuid
 from datetime import date, timedelta
 from typing import Annotated, Literal
 
-from fastapi import APIRouter, Depends, Query, Request
+from fastapi import APIRouter, Depends, File, Query, Request, UploadFile
 from pydantic import Field
 from sqlalchemy import func, or_, select
 
@@ -36,6 +36,7 @@ from app.schemas.auth import TokensOut
 from app.schemas.common import Schema
 from app.services import jetons, plans, promo, sessions, site
 from app.services.assignments import TASHKENT
+from app.services.storage import check_size
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
@@ -451,6 +452,54 @@ async def put_economics(body: dict, admin: CurrentAdmin, db: DB) -> dict:
 @router.put("/site/downloads")
 async def put_downloads(body: dict, admin: CurrentAdmin, db: DB) -> dict:
     return await site.set_downloads(db, body)
+
+
+# ---------------------------------------------------------------- Jamoa (saytdagi "Jamoa" bo'limi)
+
+
+class FounderIn(Schema):
+    name: str = Field(min_length=2, max_length=80)
+    role: str = Field(min_length=2, max_length=80)
+    bio: str | None = Field(default=None, max_length=400)
+
+
+class FounderUpdateIn(Schema):
+    name: str | None = Field(default=None, min_length=2, max_length=80)
+    role: str | None = Field(default=None, min_length=2, max_length=80)
+    bio: str | None = Field(default=None, max_length=400)
+
+
+@router.get("/founders")
+async def list_founders(admin: CurrentAdmin, db: DB) -> list[dict]:
+    return await site.founders(db)
+
+
+@router.post("/founders", status_code=201)
+async def add_founder(body: FounderIn, admin: CurrentAdmin, db: DB) -> dict:
+    return await site.add_founder(db, body.name, body.role, body.bio)
+
+
+@router.patch("/founders/{fid}")
+async def update_founder(fid: str, body: FounderUpdateIn, admin: CurrentAdmin, db: DB) -> dict:
+    return await site.update_founder(db, fid, body.model_dump(exclude_unset=True))
+
+
+@router.delete("/founders/{fid}", status_code=204)
+async def delete_founder(fid: str, admin: CurrentAdmin, db: DB) -> None:
+    await site.delete_founder(db, fid)
+
+
+@router.post("/founders/{fid}/move/{direction}")
+async def move_founder(fid: str, direction: Literal["up", "down"], admin: CurrentAdmin, db: DB) -> list[dict]:
+    return await site.move_founder(db, fid, direction == "up")
+
+
+@router.post("/founders/{fid}/photo")
+async def upload_founder_photo(fid: str, admin: CurrentAdmin, db: DB,
+                               file: Annotated[UploadFile, File()]) -> dict:
+    data = await file.read()
+    check_size(data, 8, "Rasm")
+    return await site.set_founder_photo(db, fid, data)
 
 
 class SecretPasswordIn(Schema):

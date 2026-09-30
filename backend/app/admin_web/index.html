@@ -21,7 +21,7 @@
   }
   * { box-sizing: border-box; }
   body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
-  button, input, select { font: inherit; color: inherit; }
+  button, input, select, textarea { font: inherit; color: inherit; }
   .hidden { display: none !important; }
   /* Kirish */
   .login { min-height: 100vh; display: grid; place-items: center; padding: 16px; }
@@ -30,8 +30,9 @@
   h1 { font-size: 22px; margin: 0 0 4px; } h2 { font-size: 20px; margin: 0 0 16px; }
   .muted { color: var(--muted); }
   label { display: block; font-size: 13px; font-weight: 600; margin: 14px 0 6px; }
-  input, select { width: 100%; padding: 11px 13px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); }
-  input:focus, select:focus { outline: 2px solid var(--primary); outline-offset: -1px; }
+  input, select, textarea { width: 100%; padding: 11px 13px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); }
+  textarea { resize: vertical; }
+  input:focus, select:focus, textarea:focus { outline: 2px solid var(--primary); outline-offset: -1px; }
   .btn { border: 0; border-radius: 12px; padding: 10px 16px; font-weight: 700; cursor: pointer; background: var(--primary); color: #fff; }
   .btn.block { width: 100%; margin-top: 18px; padding: 12px; }
   .btn.ghost { background: var(--surface-2); color: var(--text); }
@@ -112,6 +113,7 @@
       <button data-page="support">💬 Murojaatlar <span class="badge warning hidden" id="supportBadge"></span></button>
       <button data-page="jetons">🪙 Jetonlar <span class="badge warning hidden" id="jetonBadge"></span></button>
       <button data-page="site">🌐 Sayt</button>
+      <button data-page="team">👥 Jamoa</button>
       <button id="logout">↩ Chiqish</button>
     </nav>
   </aside>
@@ -204,6 +206,7 @@ async function render() {
     if (page === "support") await supportPage(main, "open");
     if (page === "jetons") await jetonsPage(main, "pending");
     if (page === "site") await sitePage(main);
+    if (page === "team") await teamPage(main);
   } catch (err) { main.innerHTML = `<div class="empty">${esc(err.message)}</div>`; }
 }
 
@@ -545,6 +548,80 @@ async function jetonsPage(main, status) {
         name: d.get("name"), description: d.get("description"), price_uzs: +d.get("price_uzs"), is_active: d.get("is_active") === "on"})});
       toast("Saqlandi");
     } catch (err) { toast(err.message); }
+  });
+}
+
+// ---------------------------------------------------------------- Jamoa (saytdagi asoschilar bo'limi)
+const initials = (name) => name.split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0].toUpperCase()).join("");
+
+async function teamPage(main) {
+  const list = await api("/admin/founders");
+  const card = (f, i) => `
+    <form class="card" data-id="${f.id}">
+      <div class="row" style="gap:14px;align-items:flex-start;flex-wrap:nowrap">
+        <div style="flex:none;width:96px;text-align:center">
+          ${f.photo_url
+            ? `<img src="${esc(f.photo_url)}" alt="" style="width:96px;height:96px;border-radius:50%;object-fit:cover;display:block">`
+            : `<div style="width:96px;height:96px;border-radius:50%;background:var(--primary-soft);color:var(--primary);display:grid;place-items:center;font-size:30px;font-weight:800">${esc(initials(f.name))}</div>`}
+          <label class="btn sm ghost" style="margin-top:8px;display:inline-block;cursor:pointer">📷 Rasm
+            <input type="file" accept="image/*" data-photo="${f.id}" style="display:none"></label>
+        </div>
+        <div style="flex:1;min-width:0">
+          <label>Ism familiya</label><input name="name" value="${esc(f.name)}" required minlength="2" maxlength="80">
+          <label>Roli</label><input name="role" value="${esc(f.role)}" required minlength="2" maxlength="80" placeholder="Masalan: Founder, Backend Engineer">
+          <label>Qisqa ma'lumot</label><textarea name="bio" rows="2" maxlength="400" style="width:100%">${esc(f.bio)}</textarea>
+          <div class="row" style="justify-content:space-between;margin-top:10px">
+            <div class="row">
+              <button class="btn sm ghost" type="button" data-move="up" data-id="${f.id}" ${i === 0 ? "disabled" : ""} title="Yuqoriga">↑</button>
+              <button class="btn sm ghost" type="button" data-move="down" data-id="${f.id}" ${i === list.length - 1 ? "disabled" : ""} title="Pastga">↓</button>
+              <button class="btn sm ghost" type="button" data-del="${f.id}">🗑 O'chirish</button>
+            </div>
+            <button class="btn sm" type="submit">Saqlash</button>
+          </div>
+        </div>
+      </div>
+    </form>`;
+
+  main.innerHTML = `
+    <div class="topbar"><h2>Jamoa</h2></div>
+    <p class="muted" style="margin-top:-8px">Taqdimot saytidagi “Jamoa” bo'limida shu tartibda chiqadi. Rasm avtomatik kvadrat qilib qirqiladi.</p>
+    <div class="plan-grid" style="grid-template-columns:repeat(auto-fit,minmax(360px,1fr))">${list.map(card).join("")}</div>
+    <form class="card" id="teamAdd" style="margin-top:14px">
+      <strong>Yangi a'zo</strong>
+      <div class="row" style="flex-wrap:wrap">
+        <div style="flex:1;min-width:200px"><label>Ism familiya</label><input name="name" required minlength="2" maxlength="80"></div>
+        <div style="flex:1;min-width:200px"><label>Roli</label><input name="role" required minlength="2" maxlength="80" placeholder="Backend Engineer"></div>
+      </div>
+      <label>Qisqa ma'lumot</label><textarea name="bio" rows="2" maxlength="400" style="width:100%"></textarea>
+      <div class="row" style="justify-content:flex-end;margin-top:10px"><button class="btn" type="submit">Qo'shish</button></div>
+    </form>`;
+
+  const body = (f) => { const d = new FormData(f); return {name: d.get("name").trim(), role: d.get("role").trim(), bio: d.get("bio").trim()}; };
+  $("#teamAdd").onsubmit = async (e) => {
+    e.preventDefault();
+    try { await api("/admin/founders", {method: "POST", body: JSON.stringify(body(e.target))}); toast("Qo'shildi — endi rasm yuklang"); teamPage(main); }
+    catch (err) { toast(err.message); }
+  };
+  main.querySelectorAll("form[data-id]").forEach((f) => f.onsubmit = async (e) => {
+    e.preventDefault();
+    try { await api("/admin/founders/" + f.dataset.id, {method: "PATCH", body: JSON.stringify(body(f))}); toast("Saqlandi"); }
+    catch (err) { toast(err.message); }
+  });
+  main.querySelectorAll("[data-move]").forEach((b) => b.onclick = async () => {
+    await api(`/admin/founders/${b.dataset.id}/move/${b.dataset.move}`, {method: "POST", body: "{}"}); teamPage(main);
+  });
+  main.querySelectorAll("[data-del]").forEach((b) => b.onclick = async () => {
+    if (!confirm("Jamoa a'zosi saytdan olib tashlansinmi?")) return;
+    const res = await fetch(API + "/admin/founders/" + b.dataset.del, {method: "DELETE", headers: {Authorization: "Bearer " + token}});
+    if (res.ok) { toast("O'chirildi"); teamPage(main); } else toast("Xatolik");
+  });
+  main.querySelectorAll("[data-photo]").forEach((inp) => inp.onchange = async () => {
+    const file = inp.files[0]; if (!file) return;
+    const fd = new FormData(); fd.append("file", file);
+    toast("Yuklanmoqda…");
+    const res = await fetch(API + `/admin/founders/${inp.dataset.photo}/photo`, {method: "POST", headers: {Authorization: "Bearer " + token}, body: fd});
+    const data = await res.json().catch(() => ({}));
+    if (res.ok) { toast("Rasm yangilandi"); teamPage(main); } else toast(data?.error?.message || "Rasm yuklanmadi");
   });
 }
 

@@ -5,11 +5,15 @@ quyidagi standart qiymatlar (o'lchangan haqiqiy token sarfi asosida) ishlatiladi
 """
 
 import asyncio
+import base64
+import hashlib
+import io
+import uuid
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.errors import Unauthorized
+from app.core.errors import AppError, NotFound, Unauthorized
 from app.core.security import hash_password, utcnow, verify_password
 from app.models import Plan, Role, SiteSetting, Submission, SubmissionStatus, User
 from app.services.plans import TRIAL, plan_dict
@@ -111,6 +115,108 @@ async def _plans(db: AsyncSession) -> list[dict]:
     return [plan_dict(p) for p in rows]
 
 
+# ---------------------------------------------------------------- Jamoa (asoschilar)
+# Saytdagi "Jamoa" bo'limi. Rasmlar kichik (480px, ~40 KB) — bazada base64 ko'rinishida saqlanadi,
+# shuning uchun alohida fayl ombori va imzolangan havola kerak emas.
+
+FOUNDERS_KEY = "founders"
+MAX_FOUNDERS = 12
+PHOTO_SIDE = 480
+
+
+async def _founders_raw(db: AsyncSession) -> list[dict]:
+    return list((await _get(db, FOUNDERS_KEY) or {}).get("items", []))
+
+
+async def _save_founders(db: AsyncSession, items: list[dict]) -> None:
+    await _put(db, FOUNDERS_KEY, {"items": items})
+
+
+def founder_out(f: dict) -> dict:
+    photo = f"/api/v1/site/founders/{f['id']}/photo?v={f['photo_v']}" if f.get("photo") else None
+    return {"id": f["id"], "name": f["name"], "role": f["role"], "bio": f.get("bio") or "", "photo_url": photo}
+
+
+async def founders(db: AsyncSession) -> list[dict]:
+    return [founder_out(f) for f in await _founders_raw(db)]
+
+
+def _find(items: list[dict], fid: str) -> int:
+    for i, f in enumerate(items):
+        if f["id"] == fid:
+            return i
+    raise NotFound("FOUNDER_NOT_FOUND", "Jamoa a'zosi topilmadi")
+
+
+async def add_founder(db: AsyncSession, name: str, role: str, bio: str | None) -> dict:
+    items = await _founders_raw(db)
+    if len(items) >= MAX_FOUNDERS:
+        raise AppError("FOUNDERS_LIMIT", f"Jamoada ko'pi bilan {MAX_FOUNDERS} kishi bo'lishi mumkin", 422)
+    f = {"id": uuid.uuid4().hex[:12], "name": name.strip(), "role": role.strip(), "bio": (bio or "").strip()}
+    items.append(f)
+    await _save_founders(db, items)
+    return founder_out(f)
+
+
+async def update_founder(db: AsyncSession, fid: str, data: dict) -> dict:
+    items = await _founders_raw(db)
+    f = items[_find(items, fid)]
+    for k in ("name", "role", "bio"):
+        if data.get(k) is not None:
+            f[k] = data[k].strip()
+    await _save_founders(db, items)
+    return founder_out(f)
+
+
+async def delete_founder(db: AsyncSession, fid: str) -> None:
+    items = await _founders_raw(db)
+    items.pop(_find(items, fid))
+    await _save_founders(db, items)
+
+
+async def move_founder(db: AsyncSession, fid: str, up: bool) -> list[dict]:
+    items = await _founders_raw(db)
+    i = _find(items, fid)
+    j = i - 1 if up else i + 1
+    if 0 <= j < len(items):
+        items[i], items[j] = items[j], items[i]
+        await _save_founders(db, items)
+    return [founder_out(f) for f in items]
+
+
+def _square_photo(data: bytes) -> bytes:
+    from PIL import Image, ImageOps, UnidentifiedImageError
+
+    try:
+        img = Image.open(io.BytesIO(data))
+        img = ImageOps.exif_transpose(img).convert("RGB")
+    except (UnidentifiedImageError, OSError) as exc:
+        raise AppError("PHOTO_INVALID", "Rasmni o'qib bo'lmadi. JPG yoki PNG yuklang", 422) from exc
+    # Yuz odatda rasmning yuqori qismida — kvadratni biroz yuqoriroqdan qirqamiz
+    img = ImageOps.fit(img, (PHOTO_SIDE, PHOTO_SIDE), Image.LANCZOS, centering=(0.5, 0.35))
+    out = io.BytesIO()
+    img.save(out, "JPEG", quality=86, optimize=True)
+    return out.getvalue()
+
+
+async def set_founder_photo(db: AsyncSession, fid: str, data: bytes) -> dict:
+    items = await _founders_raw(db)
+    f = items[_find(items, fid)]
+    jpg = _square_photo(data)
+    f["photo"] = base64.b64encode(jpg).decode()
+    f["photo_v"] = hashlib.sha1(jpg).hexdigest()[:10]  # rasm almashsa havola ham o'zgaradi (kesh uchun)
+    await _save_founders(db, items)
+    return founder_out(f)
+
+
+async def founder_photo(db: AsyncSession, fid: str) -> bytes:
+    items = await _founders_raw(db)
+    f = items[_find(items, fid)]
+    if not f.get("photo"):
+        raise NotFound("PHOTO_NOT_FOUND", "Rasm yuklanmagan")
+    return base64.b64decode(f["photo"])
+
+
 async def public_info(db: AsyncSession) -> dict:
     plans = await _plans(db)
     teachers = await db.scalar(select(func.count()).select_from(User).where(User.role == Role.TEACHER))
@@ -124,4 +230,5 @@ async def public_info(db: AsyncSession) -> dict:
         "stats": {"teachers": teachers, "students": students, "checked": checked},
         "downloads": await downloads(db),
         "secret_enabled": await has_secret_password(db),
+        "founders": await founders(db),
     }

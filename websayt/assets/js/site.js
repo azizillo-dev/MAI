@@ -279,6 +279,26 @@
     $$('#pricing .reveal').forEach((el, i) => { el.style.setProperty('--d', `${i * 0.08}s`); revealIO.observe(el); });
   }
 
+  // ---------------------------------------------------------------- Jamoa
+  function renderTeam(list) {
+    const origin = new URL(API, location.href).origin; // API boshqa domenda bo'lsa ham rasm to'g'ri ochilsin
+    const initials = (n) => n.split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0].toUpperCase()).join('');
+    $('#teamGrid').innerHTML = list.map((f) => `
+      <article class="member reveal">
+        <div class="member__photo">${f.photo_url
+          ? `<img src="${esc(new URL(f.photo_url, origin).href)}" alt="${esc(f.name)}" width="128" height="128" loading="lazy">`
+          : `<span aria-hidden="true">${esc(initials(f.name))}</span>`}</div>
+        <h3>${esc(f.name)}</h3>
+        <span class="member__role">${esc(f.role)}</span>
+        ${f.bio ? `<p>${esc(f.bio)}</p>` : ''}
+      </article>`).join('');
+    $('#jamoa').hidden = false;
+    $('#navTeam').hidden = false;
+    $$('#teamGrid .reveal').forEach((el, i) => { el.style.setProperty('--d', `${i * 0.08}s`); revealIO.observe(el); });
+    navMap.set('jamoa', $('#navTeam'));
+    sectionIO.observe($('#jamoa'));
+  }
+
   // ---------------------------------------------------------------- Yuklab olish va QR
   function qrSvg(text) {
     const q = qrcode(0, 'M');
@@ -523,6 +543,7 @@
   api('/site/public').then((info) => {
     if (info.plans?.length) renderPricing(info);
     if (info.downloads) renderDownloads(info.downloads);
+    if (info.founders?.length) renderTeam(info.founders);
     if (!info.secret_enabled) $('#secretHint').textContent = 'Parol hali o‘rnatilmagan: Admin panel → Sayt bo‘limida o‘rnating';
     const checked = info.stats?.checked || 0;
     if (checked >= 100) {
