@@ -210,7 +210,8 @@ async def create_assignment(
 async def _log_run(db: AsyncSession, kind: str, usage: Usage | None, *, teacher_id, assignment_id=None,
                    submission_id=None, error: str | None = None) -> None:
     s = get_settings()
-    u = usage or Usage(provider=s.ai_provider, model=s.ai_model)
+    default_model = s.gemini_model if s.ai_provider == "gemini" else s.ai_model
+    u = usage or Usage(provider=s.ai_provider, model=default_model)
     db.add(
         AiRun(
             kind=kind,

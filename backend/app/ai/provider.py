@@ -180,6 +180,9 @@ class AnthropicProvider:
         return await self._parse(system=system, content=content, output_format=GradeResult, effort="high")
 
 
+THINKING_BUDGET = 24576
+
+
 class GeminiProvider:
     """Google Gemini (google-genai SDK). AI Studio kaliti bilan bepul tarifda ham ishlaydi.
 
@@ -205,9 +208,11 @@ class GeminiProvider:
             response_mime_type="application/json",
             response_schema=schema,
             temperature=0.2,  # baholash barqaror bo'lishi uchun
-            max_output_tokens=16000,
-            # Fikrlash (thinking) murakkab qo'lyozmani tekshirishda aniqlikni oshiradi
-            thinking_config=types.ThinkingConfig(thinking_budget=-1 if thinking else 0),
+            # Chegara — faqat yuqori chegara (haq ishlatilgan token uchun olinadi). Zich daftarda (10+ misol,
+            # ikki sahifa) fikrlash 16k dan oshib, javob kesilib qolgan edi
+            max_output_tokens=65536,
+            # Fikrlash aniqlikni oshiradi, lekin chegaralanadi — javobga doim joy qolsin
+            thinking_config=types.ThinkingConfig(thinking_budget=THINKING_BUDGET if thinking else 0),
         )
         response, model_used = await self._call_with_retry(parts, config)
 
