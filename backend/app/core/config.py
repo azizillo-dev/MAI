@@ -88,6 +88,8 @@ class Settings(BaseSettings):
     ai_max_attempts: int = 12
     # Bitta AI vazifasini jarayon shu muddatga "egallaydi" (jarayon to'xtab qolsa, boshqasi oladi)
     ai_lease_seconds: int = 600
+    # Qotib qolgan AI ishlarini qidirish oralig'i (soniya)
+    ai_sweep_seconds: float = 60
     # Kitobdan bir vazifaga olinadigan maksimal sahifalar (xarajat va sifat uchun)
     max_book_pages_per_assignment: int = 15
 

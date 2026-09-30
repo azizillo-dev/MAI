@@ -328,9 +328,11 @@ async def prepare_assignment(assignment_id: uuid.UUID) -> None:
         elif isinstance(error, AiError) and error.retryable and a.ai_attempts + 1 < s.ai_max_attempts:
             # Limit/band: xato bermaymiz, navbatda kutadi va keyinroq o'zi qayta urinadi
             a.ai_attempts += 1
+            delay = _retry_delay(a.ai_attempts)
+            a.ai_lease_until = utcnow() + timedelta(seconds=delay)  # shu vaqtgacha davriy tekshiruv tegmaydi
             await _log_run(db, "prepare", None, teacher_id=teacher_id, assignment_id=a.id, error=str(error))
             await db.commit()
-            jobs.spawn_later(_retry_delay(a.ai_attempts), prepare_assignment, assignment_id)
+            jobs.spawn_later(delay, prepare_assignment, assignment_id)
             return
         elif isinstance(error, AiError):
             a.status = AssignmentStatus.FAILED
@@ -582,8 +584,10 @@ async def grade_submission(submission_id: uuid.UUID) -> None:
             if error.retryable and sub.ai_attempts + 1 < s.ai_max_attempts:
                 # Limit/band: o'quvchi "tekshirilmoqda" ko'radi, navbatda kutib o'zi qayta uriniladi
                 sub.ai_attempts += 1
+                delay = _retry_delay(sub.ai_attempts)
+                sub.ai_lease_until = utcnow() + timedelta(seconds=delay)  # shu vaqtgacha davriy tekshiruv tegmaydi
                 await db.commit()
-                jobs.spawn_later(_retry_delay(sub.ai_attempts), grade_submission, submission_id)
+                jobs.spawn_later(delay, grade_submission, submission_id)
                 return
             sub.status = SubmissionStatus.FAILED
             sub.note_teacher = f"AI tekshira olmadi: {error}. Iltimos, qo'lda baholang."
@@ -638,9 +642,19 @@ async def teacher_review(db: AsyncSession, teacher: User, submission_id: uuid.UU
 
 
 async def resume_pending() -> None:
-    """Server qayta ishga tushganda chala qolgan AI ishlarini qayta navbatga qo'yadi."""
+    """Chala qolgan AI ishlarini qayta navbatga qo'yadi: server ishga tushganda va har daqiqada.
+
+    Faqat ijarasi yo'q yoki tugagan ishlar olinadi. Ijara bo'lsa — ish hozir bajarilmoqda yoki
+    qayta urinish vaqti kelmagan. Jarayon yiqilsa (masalan, server qayta ishga tushsa) ijara o'z-o'zidan
+    tugaydi va ish keyingi tekshiruvda qayta olinadi — hech narsa "tekshirilmoqda"da qotib qolmaydi.
+    """
+    now = utcnow()
     async with get_sessionmaker()() as db:
-        for aid in await db.scalars(select(Assignment.id).where(Assignment.status == AssignmentStatus.PREPARING)):
+        for aid in await db.scalars(select(Assignment.id).where(
+                Assignment.status == AssignmentStatus.PREPARING,
+                or_(Assignment.ai_lease_until.is_(None), Assignment.ai_lease_until < now))):
             jobs.spawn(prepare_assignment, aid)
-        for sid in await db.scalars(select(Submission.id).where(Submission.status == SubmissionStatus.GRADING)):
+        for sid in await db.scalars(select(Submission.id).where(
+                Submission.status == SubmissionStatus.GRADING,
+                or_(Submission.ai_lease_until.is_(None), Submission.ai_lease_until < now))):
             jobs.spawn(grade_submission, sid)

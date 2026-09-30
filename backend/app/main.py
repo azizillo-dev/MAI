@@ -11,6 +11,7 @@ from app.api.routes import admin, assignments, auth, extras, gamification, group
 from app.core.config import get_settings
 from app.core.errors import register_error_handlers
 from app.db.session import get_sessionmaker
+from app.services import jobs
 from app.services.assignments import resume_pending
 from app.services.jetons import seed_jetons
 from app.services.plans import seed_plans
@@ -24,7 +25,10 @@ async def lifespan(_: FastAPI):
         await seed_plans(db)
         await seed_jetons(db)
     await resume_pending()
+    # Har daqiqada: jarayon yiqilib qolgan (ijarasi tugagan) AI ishlarini qayta navbatga qo'yadi
+    sweeper = jobs.start_periodic(get_settings().ai_sweep_seconds, resume_pending)
     yield
+    sweeper.cancel()
 
 
 def create_app() -> FastAPI:

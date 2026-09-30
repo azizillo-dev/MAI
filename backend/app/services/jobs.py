@@ -14,11 +14,20 @@ log = logging.getLogger("jobs")
 _tasks: set[asyncio.Task] = set()
 # Bir vaqtda nechta AI so'rovi: API limitlari va xotirani himoya qiladi
 _semaphore = asyncio.Semaphore(4)
+# Navbatda (hali boshlanmagan) turgan vazifalar: davriy tekshiruv bir ishni qayta-qayta qo'shmasin
+_queued: set[tuple] = set()
 
 
 def spawn(fn: Callable[..., Awaitable[None]], *args) -> None:
+    key = (fn.__name__, *args)
+    if key in _queued:
+        return
+    _queued.add(key)
+
     async def runner() -> None:
         async with _semaphore:
+            # Boshlandi — navbatdan chiqadi (ish ichidan o'zini qayta navbatga qo'yishi mumkin)
+            _queued.discard(key)
             try:
                 await fn(*args)
             except Exception:  # vazifa yiqilsa ham server ishlashda davom etadi
@@ -40,6 +49,20 @@ def spawn_later(delay: float, fn: Callable[..., Awaitable[None]], *args) -> None
     task = asyncio.create_task(later())
     _tasks.add(task)
     task.add_done_callback(_tasks.discard)
+
+
+def start_periodic(interval: float, fn: Callable[[], Awaitable[None]]) -> asyncio.Task:
+    """Davriy vazifa (masalan, to'xtab qolgan AI ishlarini qayta navbatga qo'yish)."""
+
+    async def loop() -> None:
+        while True:
+            await asyncio.sleep(interval)
+            try:
+                await fn()
+            except Exception:
+                log.exception("Davriy vazifa xatosi: %s", fn.__name__)
+
+    return asyncio.create_task(loop())
 
 
 async def drain() -> None:

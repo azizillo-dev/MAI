@@ -411,6 +411,83 @@ async def test_same_job_runs_once_even_if_started_twice(client, monkeypatch):
     assert len(calls) == 1
 
 
+async def test_orphaned_job_is_picked_up_after_lease_expires(client, monkeypatch):
+    """Server ish o'rtasida qayta ishga tushdi: ish "tekshirilmoqda"da qotib qolmasligi kerak."""
+    import uuid
+
+    from sqlalchemy import update
+
+    from app.db import session as db_session
+    from app.models import Submission
+    from app.services.assignments import resume_pending
+
+    t, g, (s,) = await _setup(client, 1)
+    a = await _published(client, t, g)
+    fake = ai.get_provider()
+    real_grade = fake.grade
+    calls = []
+
+    async def counting(ctx, work, text):
+        calls.append(1)
+        return await real_grade(ctx, work, text)
+
+    monkeypatch.setattr(fake, "grade", counting)
+    # Topshirish paytidagi vazifa "o'lik jarayonda" qolgandek: fon vazifasini ishga tushirmaymiz
+    monkeypatch.setattr(jobs, "spawn", lambda *a, **k: None)
+    sid = uuid.UUID((await _submit(client, s, a)).json()["submission"]["id"])
+    monkeypatch.undo()
+    monkeypatch.setattr(fake, "grade", counting)
+
+    async def set_lease(delta):
+        async with db_session.get_sessionmaker()() as db:
+            await db.execute(update(Submission).where(Submission.id == sid)
+                             .values(ai_lease_until=datetime.now(UTC) + delta))
+            await db.commit()
+
+    # Ijara hali amalda (jarayon ishlayapti yoki qayta urinish vaqti kelmagan) — tegilmaydi
+    await set_lease(timedelta(minutes=5))
+    await resume_pending()
+    await jobs.drain()
+    assert calls == []
+
+    # Ijara tugadi (jarayon yiqilgan) — davriy tekshiruv ishni olib, baholaydi
+    await set_lease(timedelta(seconds=-1))
+    await resume_pending()
+    await resume_pending()  # ikki marta chaqirilsa ham bir marta bajariladi
+    await jobs.drain()
+    sub = (await client.get(f"/api/v1/student/assignments/{a['id']}", headers=s)).json()["submission"]
+    assert len(calls) == 1 and sub["status"] == "graded"
+
+
+async def test_retry_wait_is_not_cut_short_by_sweeper(client, monkeypatch):
+    from sqlalchemy import select
+
+    from app.db import session as db_session
+    from app.models import Submission
+    from app.services.assignments import resume_pending
+
+    t, g, (s,) = await _setup(client, 1)
+    a = await _published(client, t, g)
+    calls = []
+
+    async def limited(ctx, work, text):
+        calls.append(1)
+        raise ai.AiError("AI band", retryable=True)
+
+    monkeypatch.setattr(ai.get_provider(), "grade", limited)
+    monkeypatch.setattr(jobs, "spawn_later", lambda *a, **k: None)  # qayta urinish vaqti hali kelmagan
+    await _submit(client, s, a)
+    await jobs.drain()
+    assert len(calls) == 1
+    async with db_session.get_sessionmaker()() as db:
+        sub = (await db.execute(select(Submission))).scalars().one()
+        lease = sub.ai_lease_until if sub.ai_lease_until.tzinfo else sub.ai_lease_until.replace(tzinfo=UTC)
+        assert lease > datetime.now(UTC)  # kutish vaqti ijaraga yozildi
+    await resume_pending()
+    await jobs.drain()
+    assert len(calls) == 1  # davriy tekshiruv muddatidan oldin qayta urinmadi
+
+
 async def test_student_task_list_is_bounded_to_latest(client, monkeypatch):
     from app.core.config import get_settings
 
