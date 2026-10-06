@@ -66,9 +66,10 @@ async def test_monthly_medals_awarded_once(client):
     a = await _published(client, t, g)
     await _submit(client, s1, a)
     await jobs.drain()
-    # XP'ni o'tgan oyga suramiz
+    # XP'ni o'tgan oyning o'rtasiga suramiz ("40 kun oldin" oy boshida undan oldingi oyga tushib qolardi)
+    month_start = datetime.now(UTC).replace(day=1, hour=12, minute=0, second=0, microsecond=0)
     async with db_session.get_sessionmaker()() as db:
-        await db.execute(update(XpEvent).values(created_at=datetime.now(UTC) - timedelta(days=40)))
+        await db.execute(update(XpEvent).values(created_at=month_start - timedelta(days=15)))
         await db.commit()
     for _ in range(2):  # ikki marta ochilsa ham medal bir marta beriladi
         await client.get(f"/api/v1/leaderboard?group_id={g['id']}", headers=s1)
