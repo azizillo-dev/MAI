@@ -36,6 +36,7 @@ QUESTIONS: list[dict[str, Any]] = [
             {"id": "grade_5_9", "label": {"uz": "5–9-sinf", "ru": "5–9 класс"}},
             {"id": "grade_10_11", "label": {"uz": "10–11-sinf", "ru": "10–11 класс"}},
             {"id": "applicants", "label": {"uz": "Abituriyentlar", "ru": "Абитуриенты"}},
+            {"id": "university", "label": {"uz": "Talabalar (OTM)", "ru": "Студенты (вуз)"}},
             {"id": "adults", "label": {"uz": "Kattalar", "ru": "Взрослые"}},
         ],
     },
@@ -47,6 +48,7 @@ QUESTIONS: list[dict[str, Any]] = [
         "title": {"uz": "Qayerda dars berasiz?", "ru": "Где вы преподаёте?"},
         "options": [
             {"id": "school", "label": {"uz": "Maktab", "ru": "Школа"}},
+            {"id": "university", "label": {"uz": "Universitet / OTM", "ru": "Университет / вуз"}},
             {"id": "learning_center", "label": {"uz": "O'quv markazi", "ru": "Учебный центр"}},
             {"id": "private", "label": {"uz": "Xususiy (repetitor)", "ru": "Репетитор"}},
             {"id": "online", "label": {"uz": "Onlayn", "ru": "Онлайн"}},

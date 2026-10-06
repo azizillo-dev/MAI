@@ -119,6 +119,8 @@ async def _plans(db: AsyncSession) -> list[dict]:
 # Saytdagi "Jamoa" bo'limi. Rasmlar kichik (480px, ~40 KB) — bazada base64 ko'rinishida saqlanadi,
 # shuning uchun alohida fayl ombori va imzolangan havola kerak emas.
 
+DEMO_EMAIL_DOMAIN = "demo.mentorai.uz"  # tools/showcase_seed.py yaratgan talabalar
+
 FOUNDERS_KEY = "founders"
 MAX_FOUNDERS = 12
 PHOTO_SIDE = 480
@@ -219,10 +221,14 @@ async def founder_photo(db: AsyncSession, fid: str) -> bytes:
 
 async def public_info(db: AsyncSession) -> dict:
     plans = await _plans(db)
+    # Taqdimot uchun yaratilgan demo talabalar (DEMO_EMAIL_DOMAIN) ochiq statistikaga kirmaydi —
+    # saytda faqat haqiqiy foydalanish ko'rsatiladi
+    real = ~User.email.like(f"%@{DEMO_EMAIL_DOMAIN}")
     teachers = await db.scalar(select(func.count()).select_from(User).where(User.role == Role.TEACHER))
-    students = await db.scalar(select(func.count()).select_from(User).where(User.role == Role.STUDENT))
+    students = await db.scalar(select(func.count()).select_from(User).where(User.role == Role.STUDENT, real))
     checked = await db.scalar(
-        select(func.count()).select_from(Submission).where(Submission.status == SubmissionStatus.GRADED)
+        select(func.count()).select_from(Submission).join(User, User.id == Submission.student_id)
+        .where(Submission.status == SubmissionStatus.GRADED, real)
     )
     return {
         "plans": [p for p in plans if p["code"] != TRIAL],
