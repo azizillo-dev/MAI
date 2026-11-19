@@ -62,7 +62,7 @@ class SettingsScreen extends ConsumerWidget {
                 trailing: const Icon(Icons.lock_rounded, size: 18),
               ),
             _Tile(
-              icon: me.email != null ? Icons.alternate_email_rounded : Icons.phone_iphone_rounded,
+              icon: me.email != null ? Icons.mail_outline_rounded : Icons.phone_iphone_rounded,
               color: Palette.success,
               title: me.email != null ? 'Email' : 'Telefon raqam',
               subtitle: me.contact,

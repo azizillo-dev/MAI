@@ -137,7 +137,7 @@ class _PhoneScreenState extends ConsumerState<PhoneScreen> {
               Center(
                 child: TextButton.icon(
                   onPressed: () => context.pushReplacement('/auth/email'),
-                  icon: const Icon(Icons.alternate_email_rounded),
+                  icon: const Icon(Icons.mail_outline_rounded),
                   label: const Text('Email orqali davom etish'),
                 ),
               ),

@@ -1,6 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="ic_launcher_background">#FFFFFF</color>
-    <color name="splash_background">#FFFFFF</color>
-    <color name="splash_background_night">#0B1020</color>
+    <!-- Logo va kirish videosi foni bilan bir xil: splash → video o'tishi bilinmaydi -->
+    <color name="splash_background">#03041A</color>
 </resources>

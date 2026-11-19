@@ -619,7 +619,7 @@ class _Contact extends StatelessWidget {
           Text("Ma'lumotlar", style: context.text.titleMedium),
           const SizedBox(height: 8),
           if (tv.phone case final phone?) row(Icons.phone_iphone_rounded, 'Telefon', formatPhone(phone)),
-          if (tv.email case final email?) row(Icons.alternate_email_rounded, 'Email', email),
+          if (tv.email case final email?) row(Icons.mail_outline_rounded, 'Email', email),
           if (tv.birthDate case final bd?) row(Icons.cake_rounded, "Tug'ilgan sana", formatDateUz(bd)),
           row(Icons.event_available_rounded, "Ro'yxatdan o'tgan", formatDateUz(c.joinedAt)),
         ],

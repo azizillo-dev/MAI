@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'core/router/app_router.dart';
 import 'core/theme/app_theme.dart';
 import 'core/theme/theme_controller.dart';
+import 'core/widgets/intro_gate.dart';
 
 /// Android 12+ da ro'yxat chetiga yetganda kontent "cho'ziladi" (stretch overscroll).
 /// Ta'lim ilovasida bu chalg'ituvchi va "buzilgan"dek ko'rinadi: effektni o'chirib,
@@ -45,7 +46,7 @@ class MentorApp extends ConsumerWidget {
         final mq = MediaQuery.of(context);
         return MediaQuery(
           data: mq.copyWith(textScaler: mq.textScaler.clamp(minScaleFactor: 0.9, maxScaleFactor: 1.3)),
-          child: child!,
+          child: IntroGate(child: child!),
         );
       },
     );

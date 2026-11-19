@@ -551,4 +551,26 @@
       countIO.observe($('#metricLive [data-count]'));
     }
   }).catch(() => { /* zaxira qiymatlar ko'rsatilgan */ });
+  // ---------- Logo videosi: ko'rinishga yaqinlashganda yuklanadi, ko'rinmasa to'xtaydi
+  (() => {
+    const box = document.getElementById('ctaVideo');
+    const video = box && box.querySelector('video');
+    if (!video) return;
+    const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const sound = document.getElementById('ctaSound');
+    const load = () => { if (!video.src) { video.src = video.dataset.src; video.load(); } };
+    sound.addEventListener('click', () => {
+      load();
+      video.muted = !video.muted;
+      sound.setAttribute('aria-pressed', String(!video.muted));
+      sound.setAttribute('aria-label', video.muted ? 'Ovozni yoqish' : "Ovozni o'chirish");
+      if (!video.muted) { video.currentTime = 0; video.play().catch(() => {}); }
+    });
+    if (reduce || !('IntersectionObserver' in window)) return; // poster qoladi, ovoz tugmasi bilan o'ynatsa bo'ladi
+    new IntersectionObserver((entries) => {
+      entries.forEach((en) => {
+        if (en.isIntersecting) { load(); video.play().catch(() => {}); } else if (video.src) video.pause();
+      });
+    }, { rootMargin: '200px 0px' }).observe(video);
+  })();
 })();
