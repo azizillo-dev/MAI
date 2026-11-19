@@ -20,6 +20,9 @@ abstract final class Radii {
   static const md = 14.0;
   static const lg = 20.0;
   static const xl = 28.0;
+
+  /// Kartalar va bento bloklar
+  static const card = 24.0;
 }
 
 ThemeData buildTheme(Brightness brightness, Color accent) {
@@ -85,13 +88,14 @@ ThemeData buildTheme(Brightness brightness, Color accent) {
       color: isDark ? const Color(0xFF111A2E) : scheme.surface,
       // Yorug' temada keng, juda och soya (slate tusida) — karta fondan "ko'tarilib" turadi;
       // qorong'i temada soya ko'rinmaydi, o'rniga ingichka chegara
-      elevation: isDark ? 0 : 2.5,
-      shadowColor: Palette.slate900.withValues(alpha: 0.07),
+      elevation: isDark ? 0 : 3,
+      shadowColor: Palette.slate900.withValues(alpha: 0.06),
       surfaceTintColor: Colors.transparent,
       margin: EdgeInsets.zero,
+      // Yorug' temada chegarasiz (faqat yumshoq soya), qorong'ida — ingichka chegara
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(Radii.lg),
-        side: BorderSide(color: scheme.outlineVariant.withValues(alpha: isDark ? 0.7 : 0.4)),
+        borderRadius: BorderRadius.circular(Radii.card),
+        side: isDark ? BorderSide(color: scheme.outlineVariant.withValues(alpha: 0.6)) : BorderSide.none,
       ),
     ),
     filledButtonTheme: FilledButtonThemeData(

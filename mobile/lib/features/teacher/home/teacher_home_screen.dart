@@ -10,16 +10,13 @@ import '../../../core/widgets/app_widgets.dart';
 import '../../../core/widgets/motion.dart';
 import '../../assignments/data/assignment_models.dart' show scoreText;
 import '../../assignments/data/assignments_repository.dart';
-import '../../auth/application/auth_controller.dart';
 import '../../extras/report_sheet.dart';
 import '../../groups/data/group_models.dart';
 import '../../groups/data/groups_repository.dart';
 import '../groups/create_group_sheet.dart';
 import 'analytics_widgets.dart';
 import 'dashboard_models.dart';
-
-const _weekdays = ['Dushanba', 'Seshanba', 'Chorshanba', 'Payshanba', 'Juma', 'Shanba', 'Yakshanba'];
-const _weekdaysShort = ['Du', 'Se', 'Ch', 'Pa', 'Ju', 'Sh', 'Ya'];
+import 'teacher_home_bento.dart';
 
 /// O'qituvchi dashboard'i ("Bugun"): nima qilish kerakligi eng tepada, keyin holat va tahlil.
 class TeacherHomeScreen extends ConsumerStatefulWidget {
@@ -61,138 +58,174 @@ class _TeacherHomeScreenState extends ConsumerState<TeacherHomeScreen> {
     final d = dash.value;
 
     final topInset = MediaQuery.paddingOf(context).top;
-    return Scaffold(
-      body: Stack(
-        children: [
-          NotificationListener<ScrollNotification>(
-            onNotification: _onScroll,
-            child: RefreshIndicator(
-              onRefresh: refresh,
-              edgeOffset: topInset,
-              child: CustomScrollView(
-                physics: const AlwaysScrollableScrollPhysics(),
-                slivers: [
-                  SliverToBoxAdapter(child: _HeroHeader(stats: d?.stats)),
-                  if (groupList == null || d == null)
-                    SliverFillRemaining(
-                      hasScrollBody: false,
-                      child: (groups.hasError || dash.hasError)
-                          ? ErrorRetry(error: (groups.error ?? dash.error)!, onRetry: refresh)
-                          : const SkeletonList(count: 4),
-                    )
-                  else if (groupList.isEmpty)
-                    SliverFillRemaining(
-                      hasScrollBody: false,
-                      child: Center(
-                        child: EmptyState(
-                          icon: Icons.groups_rounded,
-                          title: 'Birinchi guruhingizni yarating',
-                          message: "Guruh yaratilgach, o'quvchilar kod va parol yoki QR orqali qo'shiladi. Har birini siz tasdiqlaysiz.",
-                          actionLabel: 'Guruh yaratish',
-                          actionIcon: Icons.add_rounded,
-                          onAction: () => showCreateGroupSheet(context, ref),
+    final dark = Theme.of(context).brightness == Brightness.dark;
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: dark ? SystemUiOverlayStyle.light : SystemUiOverlayStyle.dark,
+      child: Scaffold(
+        body: Stack(
+          children: [
+            const Positioned(top: 0, left: 0, right: 0, child: BentoBackdrop()),
+            NotificationListener<ScrollNotification>(
+              onNotification: _onScroll,
+              child: RefreshIndicator(
+                onRefresh: refresh,
+                edgeOffset: topInset,
+                child: CustomScrollView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  slivers: [
+                    const SliverToBoxAdapter(child: BentoHeader()),
+                    if (groupList == null || d == null)
+                      SliverFillRemaining(
+                        hasScrollBody: false,
+                        child: (groups.hasError || dash.hasError)
+                            ? ErrorRetry(error: (groups.error ?? dash.error)!, onRetry: refresh)
+                            : const SkeletonList(count: 4),
+                      )
+                    else if (groupList.isEmpty)
+                      SliverFillRemaining(
+                        hasScrollBody: false,
+                        child: Center(
+                          child: EmptyState(
+                            icon: Icons.groups_rounded,
+                            title: 'Birinchi guruhingizni yarating',
+                            message: "Guruh yaratilgach, o'quvchilar kod va parol yoki QR orqali qo'shiladi. Har birini siz tasdiqlaysiz.",
+                            actionLabel: 'Guruh yaratish',
+                            actionIcon: Icons.add_rounded,
+                            onAction: () => showCreateGroupSheet(context, ref),
+                          ),
+                        ),
+                      )
+                    else
+                      SliverPadding(
+                        padding: Insets.screen.copyWith(top: 20, bottom: 32),
+                        sliver: SliverList.list(
+                          children: [
+                            FadeSlideIn(
+                              child: FocusCard(d: d, onNewAssignment: () => _newAssignment(context, groupList)),
+                            ),
+                            if (ref.watch(planUsageProvider).value case final plan?
+                                when plan.isExpired || plan.endsSoon) ...[
+                              const SizedBox(height: 10),
+                              BentoNotice(
+                                icon: Icons.workspace_premium_rounded,
+                                tone: plan.isExpired ? StatusTone.danger : StatusTone.warning,
+                                text: plan.isExpired
+                                    ? "Tarif muddati tugagan — yangi vazifa va o'quvchi qabul qilish to'xtagan"
+                                    : "${plan.isTrial ? 'Sinov davri' : 'Tarif'} tugashiga ${plan.daysLeft} kun qoldi",
+                                onTap: () => context.push('/teacher/plans'),
+                              ),
+                            ],
+                            ..._notices(context, d.stats, groupList),
+                            const SizedBox(height: 22),
+                            FadeSlideIn(
+                              index: 1,
+                              child: BentoActions(
+                                actions: [
+                                  BentoAction(
+                                    Icons.add_task_rounded,
+                                    'Yangi vazifa',
+                                    context.colors.primary,
+                                    () => _newAssignment(context, groupList),
+                                  ),
+                                  BentoAction(
+                                    Icons.fact_check_rounded,
+                                    'Tekshirish',
+                                    Palette.warning,
+                                    () => context.push('/teacher/review'),
+                                    badge: d.stats.toReview,
+                                  ),
+                                  BentoAction(
+                                    Icons.groups_rounded,
+                                    'Guruhlar',
+                                    Palette.success,
+                                    () => context.go('/teacher/groups'),
+                                  ),
+                                  BentoAction(
+                                    Icons.summarize_rounded,
+                                    'Hisobot',
+                                    const Color(0xFF7C3AED),
+                                    () => showReportSheet(context, groupList),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(height: 22),
+                            FadeSlideIn(index: 2, child: BentoStats(d: d)),
+                            if (d.analytics.groups.isNotEmpty) ...[
+                              const SizedBox(height: 26),
+                              const _Title('Guruhlar tahlili'),
+                              GroupAnalyticsCarousel(groups: d.analytics.groups),
+                            ],
+                            if (d.analytics.totalGraded > 0) ...[
+                              const SizedBox(height: 16),
+                              GradeDistributionCard(analytics: d.analytics),
+                            ],
+                            if (d.upcoming.isNotEmpty) ...[
+                              const SizedBox(height: 26),
+                              const _Title('Yaqin muddatlar'),
+                              _UpcomingCard(items: d.upcoming),
+                            ],
+                            if (d.recent.isNotEmpty) ...[
+                              const SizedBox(height: 26),
+                              _Title(
+                                'Oxirgi ishlar',
+                                action: d.stats.toReview > 0 ? ('Tekshirish', '/teacher/review') : null,
+                              ),
+                              _RecentCard(items: d.recent),
+                            ],
+                            const SizedBox(height: 26),
+                            _Title('Guruhlarim', action: ('Hammasi', '/teacher/groups')),
+                            _GroupsStrip(groups: groupList),
+                            const SizedBox(height: 26),
+                            if (ref.watch(planUsageProvider).value case final plan?) PlanCard(plan: plan),
+                          ],
                         ),
                       ),
-                    )
-                  else
-                    SliverPadding(
-                      padding: Insets.screen.copyWith(top: 20, bottom: 32),
-                      sliver: SliverList.list(
-                        children: [
-                          _QuickActions(stats: d.stats, groups: groupList),
-                          if (ref.watch(planUsageProvider).value case final plan?
-                              when plan.isExpired || plan.endsSoon) ...[
-                            const SizedBox(height: 14),
-                            _AlertCard(
-                              icon: Icons.workspace_premium_rounded,
-                              tone: plan.isExpired ? StatusTone.danger : StatusTone.warning,
-                              title: plan.isExpired
-                                  ? 'Tarif muddati tugagan'
-                                  : "${plan.isTrial ? 'Sinov davri' : 'Tarif'} tugashiga ${plan.daysLeft} kun qoldi",
-                              subtitle: plan.isExpired
-                                  ? "Yangi o'quvchi qabul qilish va vazifa berish to'xtatilgan. Tarifni faollashtiring"
-                                  : 'Uzilishsiz ishlash uchun tarif tanlang',
-                              onTap: () => context.push('/teacher/plans'),
-                            ),
-                          ],
-                          ..._alerts(context, d.stats, groupList),
-                          const SizedBox(height: 22),
-                          _WeeklyCard(d: d),
-                          if (d.analytics.groups.isNotEmpty) ...[
-                            const SizedBox(height: 26),
-                            const _Title('Guruhlar tahlili'),
-                            GroupAnalyticsCarousel(groups: d.analytics.groups),
-                          ],
-                          if (d.analytics.totalGraded > 0) ...[
-                            const SizedBox(height: 16),
-                            GradeDistributionCard(analytics: d.analytics),
-                          ],
-                          if (d.upcoming.isNotEmpty) ...[
-                            const SizedBox(height: 26),
-                            const _Title('Yaqin muddatlar'),
-                            _UpcomingCard(items: d.upcoming),
-                          ],
-                          if (d.recent.isNotEmpty) ...[
-                            const SizedBox(height: 26),
-                            _Title(
-                              'Oxirgi ishlar',
-                              action: d.stats.toReview > 0 ? ('Tekshirish', '/teacher/review') : null,
-                            ),
-                            _RecentCard(items: d.recent),
-                          ],
-                          const SizedBox(height: 26),
-                          _Title('Guruhlarim', action: ('Hammasi', '/teacher/groups')),
-                          _GroupsStrip(groups: groupList),
-                          const SizedBox(height: 26),
-                          if (ref.watch(planUsageProvider).value case final plan?) PlanCard(plan: plan),
-                        ],
-                      ),
-                    ),
-                ],
-              ),
-            ),
-          ),
-          Positioned(
-            top: 0,
-            left: 0,
-            right: 0,
-            height: topInset,
-            child: IgnorePointer(
-              child: ValueListenableBuilder<bool>(
-                valueListenable: _scrolled,
-                builder: (context, scrolled, _) => AnimatedOpacity(
-                  opacity: scrolled ? 1 : 0,
-                  duration: const Duration(milliseconds: 180),
-                  child: ColoredBox(color: Theme.of(context).scaffoldBackgroundColor),
+                  ],
                 ),
               ),
             ),
-          ),
-        ],
+            Positioned(
+              top: 0,
+              left: 0,
+              right: 0,
+              height: topInset,
+              child: IgnorePointer(
+                child: ValueListenableBuilder<bool>(
+                  valueListenable: _scrolled,
+                  builder: (context, scrolled, _) => AnimatedOpacity(
+                    opacity: scrolled ? 1 : 0,
+                    duration: const Duration(milliseconds: 180),
+                    child: ColoredBox(color: Theme.of(context).scaffoldBackgroundColor),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
 
-  List<Widget> _alerts(BuildContext context, DashboardStats s, List<TeacherGroup> groups) {
+  List<Widget> _notices(BuildContext context, DashboardStats s, List<TeacherGroup> groups) {
     final pendingGroup = groups.where((g) => g.membersPending > 0).firstOrNull;
     return [
       if (s.pendingRequests > 0 && pendingGroup != null) ...[
-        const SizedBox(height: 14),
-        _AlertCard(
+        const SizedBox(height: 10),
+        BentoNotice(
           icon: Icons.person_add_alt_1_rounded,
           tone: StatusTone.warning,
-          title: "${s.pendingRequests} ta o'quvchi qo'shilmoqchi",
-          subtitle: "Tanisangiz qabul qiling — tasdiqlamaguningizcha guruhga kirmaydi",
+          text: "${s.pendingRequests} ta o'quvchi guruhga qo'shilmoqchi",
           onTap: () => context.push('/teacher/groups/${pendingGroup.id}'),
         ),
       ],
-      if (s.drafts > 0) ...[
+      // Fokus kartada tekshirish ko'rsatilgan bo'lsa, tayyor vazifalar shu yerda
+      if (s.drafts > 0 && s.toReview > 0) ...[
         const SizedBox(height: 10),
-        _AlertCard(
-          icon: Icons.rate_review_rounded,
+        BentoNotice(
+          icon: Icons.auto_awesome_rounded,
           tone: StatusTone.info,
-          title: '${s.drafts} ta vazifa tasdiqlashingizni kutmoqda',
-          subtitle: "AI tayyorladi — ko'rib chiqib, o'quvchilarga yuboring",
+          text: '${s.drafts} ta vazifa tasdiqlashingizni kutmoqda',
           onTap: () => context.go('/teacher/groups'),
         ),
       ],
@@ -200,365 +233,37 @@ class _TeacherHomeScreenState extends ConsumerState<TeacherHomeScreen> {
   }
 }
 
-// ---------------------------------------------------------------- Hero
-
-class _HeroHeader extends ConsumerWidget {
-  const _HeroHeader({this.stats});
-
-  final DashboardStats? stats;
-
-  String _greeting() {
-    final h = DateTime.now().hour;
-    if (h < 11) return 'Xayrli tong';
-    if (h < 17) return 'Assalomu alaykum';
-    return 'Xayrli kech';
+/// Vazifa berish: guruh bitta bo'lsa — darhol, bir nechta bo'lsa — qaysi guruhga ekanini so'raydi
+Future<void> _newAssignment(BuildContext context, List<TeacherGroup> groups) async {
+  if (groups.length == 1) {
+    context.push('/teacher/groups/${groups.first.id}/assignments/new');
+    return;
   }
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final me = ref.watch(currentUserProvider);
-    final primary = context.colors.primary;
-    final now = DateTime.now();
-    final s = stats;
-    return Container(
-      padding: EdgeInsets.fromLTRB(20, MediaQuery.paddingOf(context).top + 16, 20, 22),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [primary, Color.lerp(primary, Palette.info, 0.55)!],
-        ),
-        borderRadius: const BorderRadius.vertical(bottom: Radius.circular(28)),
-      ),
+  final id = await showModalBottomSheet<String>(
+    useRootNavigator: true,
+    context: context,
+    builder: (context) => SafeArea(
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Row(
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      '${_weekdays[now.weekday - 1]}, ${now.day}-${uzMonths[now.month - 1]}',
-                      style: TextStyle(color: Colors.white.withValues(alpha: 0.8), fontSize: 13.5),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      '${_greeting()}, ${me?.firstName ?? ''}!',
-                      style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.w800),
-                    ),
-                  ],
-                ),
-              ),
-              GestureDetector(
-                onTap: () => context.go('/teacher/profile'),
-                child: Avatar(
-                  initials: me?.initials ?? '',
-                  imageUrl: me?.avatarUrl,
-                  size: 46,
-                  color: Colors.white,
-                  ring: Colors.white.withValues(alpha: 0.6),
-                ),
-              ),
-            ],
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
+            child: Text('Qaysi guruhga?', style: context.text.titleLarge),
           ),
-          const SizedBox(height: 20),
-          Row(
-            children: [
-              _HeroStat(value: s?.students, label: "O'quvchilar", icon: Icons.people_alt_rounded),
-              const SizedBox(width: 10),
-              _HeroStat(value: s?.openAssignments, label: 'Faol vazifa', icon: Icons.assignment_rounded),
-              const SizedBox(width: 10),
-              _HeroStat(
-                value: s?.toReview,
-                label: 'Tekshirish',
-                icon: Icons.rate_review_rounded,
-                highlight: (s?.toReview ?? 0) > 0,
-                onTap: () => context.push('/teacher/review'),
-              ),
-            ],
-          ),
+          for (final g in groups)
+            ListTile(
+              leading: const Icon(Icons.groups_rounded),
+              title: Text(g.name),
+              subtitle: Text("${subjectLabel(g.subject)} · ${g.membersActive} o'quvchi"),
+              onTap: () => Navigator.pop(context, g.id),
+            ),
+          const SizedBox(height: 8),
         ],
       ),
-    );
-  }
-}
-
-class _HeroStat extends StatelessWidget {
-  const _HeroStat({required this.value, required this.label, required this.icon, this.highlight = false, this.onTap});
-
-  final int? value;
-  final String label;
-  final IconData icon;
-  final bool highlight;
-  final VoidCallback? onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Expanded(
-      child: Material(
-        color: highlight ? Colors.white : Colors.white.withValues(alpha: 0.16),
-        borderRadius: BorderRadius.circular(Radii.md),
-        child: InkWell(
-          borderRadius: BorderRadius.circular(Radii.md),
-          onTap: onTap,
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(12, 12, 8, 12),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Icon(icon, size: 20, color: highlight ? Palette.warning : Colors.white.withValues(alpha: 0.9)),
-                const SizedBox(height: 8),
-                AnimatedSwitcher(
-                  duration: const Duration(milliseconds: 250),
-                  child: Text(
-                    value?.toString() ?? '—',
-                    key: ValueKey(value),
-                    style: TextStyle(
-                      color: highlight ? Palette.slate900 : Colors.white,
-                      fontSize: 22,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                ),
-                Text(
-                  label,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    color: highlight ? Palette.slate700 : Colors.white.withValues(alpha: 0.85),
-                    fontSize: 12.5,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-// ---------------------------------------------------------------- Tezkor amallar
-
-class _QuickActions extends StatelessWidget {
-  const _QuickActions({required this.stats, required this.groups});
-
-  final DashboardStats stats;
-  final List<TeacherGroup> groups;
-
-  Future<void> _newAssignment(BuildContext context) async {
-    if (groups.length == 1) {
-      context.push('/teacher/groups/${groups.first.id}/assignments/new');
-      return;
-    }
-    final id = await showModalBottomSheet<String>(
-      useRootNavigator: true,
-      context: context,
-      builder: (context) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
-              child: Text('Qaysi guruhga?', style: context.text.titleLarge),
-            ),
-            for (final g in groups)
-              ListTile(
-                leading: const Icon(Icons.groups_rounded),
-                title: Text(g.name),
-                subtitle: Text("${subjectLabel(g.subject)} · ${g.membersActive} o'quvchi"),
-                onTap: () => Navigator.pop(context, g.id),
-              ),
-            const SizedBox(height: 8),
-          ],
-        ),
-      ),
-    );
-    if (id != null && context.mounted) context.push('/teacher/groups/$id/assignments/new');
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        _ActionTile(
-          icon: Icons.add_task_rounded,
-          label: 'Vazifa\nberish',
-          color: context.colors.primary,
-          filled: true,
-          onTap: () => _newAssignment(context),
-        ),
-        const SizedBox(width: 10),
-        _ActionTile(
-          icon: Icons.fact_check_rounded,
-          label: 'Ishlarni\ntekshirish',
-          color: Palette.warning,
-          badge: stats.toReview,
-          onTap: () => context.push('/teacher/review'),
-        ),
-        const SizedBox(width: 10),
-        _ActionTile(
-          icon: Icons.groups_rounded,
-          label: 'Guruh-\nlarim',
-          color: Palette.success,
-          onTap: () => context.go('/teacher/groups'),
-        ),
-        const SizedBox(width: 10),
-        // AI yordamchi pastki menyuda bor — bu yerda hisobot (PDF / Excel)
-        _ActionTile(
-          icon: Icons.summarize_rounded,
-          label: 'Hisobot\nolish',
-          color: const Color(0xFF7C3AED),
-          onTap: () => showReportSheet(context, groups),
-        ),
-      ],
-    );
-  }
-}
-
-class _ActionTile extends StatelessWidget {
-  const _ActionTile({
-    required this.icon,
-    required this.label,
-    required this.color,
-    required this.onTap,
-    this.filled = false,
-    this.badge = 0,
-  });
-
-  final IconData icon;
-  final String label;
-  final Color color;
-  final VoidCallback onTap;
-  final bool filled;
-  final int badge;
-
-  @override
-  Widget build(BuildContext context) {
-    return Expanded(
-      child: Pressable(
-        onTap: onTap,
-        child: Material(
-          color: filled ? color : context.colors.surface,
-          borderRadius: BorderRadius.circular(Radii.lg),
-          child: InkWell(
-            borderRadius: BorderRadius.circular(Radii.lg),
-            onTap: () {
-              HapticFeedback.selectionClick();
-              onTap();
-            },
-            child: Container(
-              height: 100,
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(Radii.lg),
-                border: filled ? null : Border.all(color: context.colors.outlineVariant),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Container(
-                        width: 36,
-                        height: 36,
-                        decoration: BoxDecoration(
-                          color: filled ? Colors.white.withValues(alpha: 0.2) : color.withValues(alpha: 0.12),
-                          borderRadius: BorderRadius.circular(11),
-                        ),
-                        child: Icon(icon, size: 20, color: filled ? Colors.white : color),
-                      ),
-                      const Spacer(),
-                      if (badge > 0)
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: context.appColors.danger,
-                            borderRadius: BorderRadius.circular(100),
-                          ),
-                          child: Text(
-                            '$badge',
-                            style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w800),
-                          ),
-                        ),
-                    ],
-                  ),
-                  const Spacer(),
-                  FittedBox(
-                    fit: BoxFit.scaleDown,
-                    alignment: Alignment.centerLeft,
-                    child: Text(
-                      label,
-                      maxLines: 2,
-                      style: TextStyle(
-                        fontSize: 12.5,
-                        height: 1.2,
-                        fontWeight: FontWeight.w700,
-                        color: filled ? Colors.white : context.colors.onSurface,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _AlertCard extends StatelessWidget {
-  const _AlertCard({required this.icon, required this.tone, required this.title, required this.subtitle, this.onTap});
-
-  final IconData icon;
-  final StatusTone tone;
-  final String title;
-  final String subtitle;
-  final VoidCallback? onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final c = context.appColors;
-    final (fg, bg) = switch (tone) {
-      StatusTone.warning => (c.warning, c.warningContainer),
-      StatusTone.success => (c.success, c.successContainer),
-      StatusTone.danger => (c.danger, c.dangerContainer),
-      _ => (c.info, c.infoContainer),
-    };
-    return Material(
-      color: bg.withValues(alpha: 0.65),
-      borderRadius: BorderRadius.circular(Radii.lg),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(Radii.lg),
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.all(14),
-          child: Row(
-            children: [
-              Icon(icon, color: fg),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(title, style: context.text.titleMedium?.copyWith(fontSize: 15)),
-                    const SizedBox(height: 2),
-                    Text(subtitle, style: context.text.bodySmall?.copyWith(color: context.colors.onSurfaceVariant)),
-                  ],
-                ),
-              ),
-              Icon(Icons.chevron_right_rounded, color: fg),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
+    ),
+  );
+  if (id != null && context.mounted) context.push('/teacher/groups/$id/assignments/new');
 }
 
 class _Title extends StatelessWidget {
@@ -582,216 +287,6 @@ class _Title extends StatelessWidget {
       ],
     ),
   );
-}
-
-// ---------------------------------------------------------------- Haftalik natija + faollik grafigi
-
-class _WeeklyCard extends StatelessWidget {
-  const _WeeklyCard({required this.d});
-
-  final TeacherDashboard d;
-
-  @override
-  Widget build(BuildContext context) {
-    final avg = d.stats.avgPercentWeek;
-    final c = context.appColors;
-    final avgColor = avg == null
-        ? context.colors.onSurfaceVariant
-        : avg >= 86
-        ? c.success
-        : avg >= 71
-        ? c.info
-        : avg >= 51
-        ? c.warning
-        : c.danger;
-    final quiet = d.stats.gradedThisWeek == 0 && d.activity.every((a) => a.count == 0);
-    if (quiet) {
-      return Card(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(18, 16, 18, 18),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('Shu hafta', style: context.text.titleMedium),
-              const SizedBox(height: 14),
-              Row(
-                children: [
-                  Container(
-                    width: 44,
-                    height: 44,
-                    decoration: BoxDecoration(
-                      color: context.colors.primary.withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(14),
-                    ),
-                    child: Icon(Icons.inbox_rounded, color: context.colors.primary),
-                  ),
-                  const SizedBox(width: 14),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Hali ish topshirilmadi',
-                          style: context.text.titleSmall?.copyWith(fontWeight: FontWeight.w700),
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          "O'quvchilar ishini topshirishi bilan natija va faollik shu yerda chiqadi.",
-                          style: context.text.bodySmall?.copyWith(color: context.colors.onSurfaceVariant),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-      );
-    }
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(18, 16, 18, 14),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('Shu hafta', style: context.text.titleMedium),
-            const SizedBox(height: 12),
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        avg == null ? '—' : '${avg.round()}%',
-                        style: TextStyle(fontSize: 34, fontWeight: FontWeight.w800, color: avgColor, height: 1),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        "o'rtacha natija",
-                        style: context.text.bodySmall?.copyWith(color: context.colors.onSurfaceVariant),
-                      ),
-                    ],
-                  ),
-                ),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        '${d.stats.gradedThisWeek}',
-                        style: TextStyle(
-                          fontSize: 34,
-                          fontWeight: FontWeight.w800,
-                          color: context.colors.onSurface,
-                          height: 1,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        'ish baholandi',
-                        style: context.text.bodySmall?.copyWith(color: context.colors.onSurfaceVariant),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 18),
-            Text(
-              "Topshirilgan ishlar, oxirgi 7 kun",
-              style: context.text.bodySmall?.copyWith(color: context.colors.onSurfaceVariant),
-            ),
-            const SizedBox(height: 8),
-            _ActivityChart(days: d.activity),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-/// Bitta qator ma'lumot: bir xil rang, legenda yo'q. Ustun bosilsa qiymati ko'rsatiladi,
-/// bugungi ustun doim qiymati bilan (tanlab yorliqlash).
-class _ActivityChart extends StatefulWidget {
-  const _ActivityChart({required this.days});
-
-  final List<ActivityDay> days;
-
-  @override
-  State<_ActivityChart> createState() => _ActivityChartState();
-}
-
-class _ActivityChartState extends State<_ActivityChart> {
-  int? _selected;
-
-  @override
-  Widget build(BuildContext context) {
-    final days = widget.days;
-    final maxCount = days.fold<int>(0, (m, d) => d.count > m ? d.count : m);
-    final primary = context.colors.primary;
-    const chartHeight = 84.0;
-    final today = days.isEmpty ? -1 : days.length - 1;
-    final shown = _selected ?? today;
-
-    return SizedBox(
-      height: chartHeight + 44,
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.end,
-        children: [
-          for (final (i, d) in days.indexed)
-            Expanded(
-              child: GestureDetector(
-                behavior: HitTestBehavior.opaque, // butun ustun balandligi bosiladi (belgidan kattaroq)
-                onTap: () {
-                  HapticFeedback.selectionClick();
-                  setState(() => _selected = _selected == i ? null : i);
-                },
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: [
-                    AnimatedOpacity(
-                      duration: const Duration(milliseconds: 150),
-                      opacity: i == shown ? 1 : 0,
-                      child: Text(
-                        '${d.count}',
-                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: context.colors.onSurface),
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    TweenAnimationBuilder<double>(
-                      tween: Tween(begin: 0, end: maxCount == 0 ? 0 : d.count / maxCount),
-                      duration: Duration(milliseconds: 500 + i * 60),
-                      curve: Curves.easeOutCubic,
-                      builder: (context, v, _) => Container(
-                        width: 18,
-                        // Qiymat 0 bo'lsa ham 3px iz qoladi: kun borligi ko'rinadi
-                        height: 3 + v * (chartHeight - 3),
-                        decoration: BoxDecoration(
-                          color: i == shown ? primary : primary.withValues(alpha: 0.35),
-                          borderRadius: const BorderRadius.vertical(top: Radius.circular(4)),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      _weekdaysShort[d.day.weekday - 1],
-                      style: TextStyle(
-                        fontSize: 11.5,
-                        fontWeight: i == today ? FontWeight.w800 : FontWeight.w500,
-                        color: i == today ? context.colors.onSurface : context.colors.onSurfaceVariant,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-        ],
-      ),
-    );
-  }
 }
 
 // ---------------------------------------------------------------- Yaqin muddatlar
@@ -1002,7 +497,10 @@ class _GroupTile extends StatelessWidget {
               Container(
                 width: 36,
                 height: 36,
-                decoration: BoxDecoration(color: color.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(11)),
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(11),
+                ),
                 child: Icon(isMath ? Icons.calculate_rounded : Icons.translate_rounded, color: color, size: 20),
               ),
               const Spacer(),
