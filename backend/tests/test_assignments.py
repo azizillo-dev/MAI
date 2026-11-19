@@ -205,7 +205,7 @@ async def test_low_confidence_goes_to_teacher_first(client, monkeypatch):
     a = await _published(client, t, g)
 
     async def unsure(ctx, work, text):
-        return GradeResult(matches_assignment=True, items=[GradedItem(number="56", verdict="partial", comment="")],
+        return GradeResult(matches_assignment=True, items=[GradedItem(number="56", verdict="partial", student_answer="", comment="")],
                            score_percent=60, feedback_student="...", note_teacher="Rasm xira", confidence=0.4), ai.Usage("fake", "fake")
 
     monkeypatch.setattr(ai.get_provider(), "grade", unsure)
@@ -530,3 +530,45 @@ async def test_dashboard_group_analytics(client):
     assert grp["students"] == 2 and grp["checked"] == 2 and grp["avg_percent"] == 80.0
     assert grp["hardest_assignment"]["avg_percent"] == 80.0 and len(grp["weekly"]) == 8
     assert grp["weekly"][-1]["works"] == 2 and sum(d["distribution"].values()) == 2
+
+
+async def test_student_asks_why_only_for_wrong_items(client, monkeypatch):
+    t, g, (s,) = await _setup(client, 1)
+    a = await _published(client, t, g)
+    await _submit(client, s, a)
+    await jobs.drain()
+
+    sub = (await client.get(f"/api/v1/student/assignments/{a['id']}", headers=s)).json()["submission"]
+    # Ustoz uchun qisqa belgi o'quvchiga yuborilmaydi: tushuntirish faqat so'ralganda
+    assert all("comment" not in i for i in sub["ai_items"])
+    wrong = next(i for i in sub["ai_items"] if i["verdict"] != "correct")
+    right = next(i for i in sub["ai_items"] if i["verdict"] == "correct")
+
+    calls = []
+    original = ai.FakeProvider.explain
+
+    async def counting(self, request):
+        calls.append(request)
+        return await original(self, request)
+
+    monkeypatch.setattr(ai.FakeProvider, "explain", counting)
+    url = f"/api/v1/student/submissions/{sub['id']}/items/{wrong['number']}/explain"
+    r = await client.post(url, headers=s)
+    assert r.status_code == 200, r.text
+    assert r.json()["explanation"]
+    # Muddat hali tugamagan, qayta topshirish mumkin: AI javobni aytmasdan yo'naltiradi
+    assert "Reveal final answer: no" in calls[0]
+
+    # Ikkinchi bosish — saqlangan javob, AI chaqirilmaydi
+    r2 = await client.post(url, headers=s)
+    assert r2.json()["explanation"] == r.json()["explanation"] and len(calls) == 1
+    sub = (await client.get(f"/api/v1/student/assignments/{a['id']}", headers=s)).json()["submission"]
+    assert next(i for i in sub["ai_items"] if i["number"] == wrong["number"])["explanation"]
+
+    r = await client.post(f"/api/v1/student/submissions/{sub['id']}/items/{right['number']}/explain", headers=s)
+    assert r.status_code == 422
+
+    # Boshqa o'quvchi birovning ishini so'ray olmaydi
+    other = await make_student(client)
+    r = await client.post(url, headers=other)
+    assert r.status_code == 404

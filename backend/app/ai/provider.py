@@ -18,6 +18,7 @@ import httpx
 
 from app.ai import prompts
 from app.ai.schemas import (
+    Explanation,
     ExtractedItem,
     ExtractedItems,
     GeneratedItem,
@@ -86,6 +87,8 @@ class AiProvider(Protocol):
     async def grade(
         self, ctx: GradingContext, work: list[Image], text_answer: str | None
     ) -> tuple[GradeResult, Usage]: ...
+
+    async def explain(self, request: str) -> tuple[Explanation, Usage]: ...
 
 
 def _image_block(img: Image) -> dict:
@@ -179,8 +182,25 @@ class AnthropicProvider:
         content.append({"type": "text", "text": prompts.grade_request(text_answer, len(work))})
         return await self._parse(system=system, content=content, output_format=GradeResult, effort="high")
 
+    async def explain(self, request):
+        return await self._parse(
+            system=[{"type": "text", "text": prompts.EXPLAIN_SYSTEM}],
+            content=[{"type": "text", "text": request}],
+            output_format=Explanation,
+            effort="low",
+        )
+
 
 THINKING_BUDGET = 24576
+
+
+def _budget(thinking: bool | int) -> int:
+    """True — standart chegara, False — fikrlashsiz, son — aniq chegara."""
+    if thinking is True:
+        return THINKING_BUDGET
+    if thinking is False:
+        return 0
+    return max(0, int(thinking))
 
 
 class GeminiProvider:
@@ -199,7 +219,8 @@ class GeminiProvider:
         self.retry_base_seconds = 2.0
         self.client = genai.Client(api_key=s.gemini_api_key)
 
-    async def _generate(self, *, system: str, parts: list, schema, thinking: bool = True):
+    async def _generate(self, *, system: str, parts: list, schema, thinking: bool | int = True,
+                        models: list[str] | None = None):
         from google.genai import types
 
         started = time.monotonic()
@@ -212,9 +233,9 @@ class GeminiProvider:
             # ikki sahifa) fikrlash 16k dan oshib, javob kesilib qolgan edi
             max_output_tokens=65536,
             # Fikrlash aniqlikni oshiradi, lekin chegaralanadi — javobga doim joy qolsin
-            thinking_config=types.ThinkingConfig(thinking_budget=THINKING_BUDGET if thinking else 0),
+            thinking_config=types.ThinkingConfig(thinking_budget=_budget(thinking)),
         )
-        response, model_used = await self._call_with_retry(parts, config)
+        response, model_used = await self._call_with_retry(parts, config, models)
 
         u = response.usage_metadata
         usage = Usage(
@@ -237,7 +258,7 @@ class GeminiProvider:
             raise AiError("AI javobini o'qib bo'lmadi")
         return parsed, usage
 
-    async def _call_with_retry(self, parts: list, config):
+    async def _call_with_retry(self, parts: list, config, models: list[str] | None = None):
         """Band (503/500) yoki vaqtinchalik limit (429) bo'lsa kutib qayta urinadi, keyin zaxira modelga o'tadi.
 
         Bepul tarifda model tez-tez "band" bo'ladi: bir urinishda taslim bo'lsak, ish ustozga qo'lda
@@ -246,7 +267,7 @@ class GeminiProvider:
         from google.genai import errors
 
         last: Exception | None = None
-        models = [self.model, *self.fallback_models]
+        models = models or [self.model, *self.fallback_models]
         for i, model in enumerate(models):
             is_last = i == len(models) - 1
             for attempt in range(4):
@@ -324,7 +345,18 @@ class GeminiProvider:
     async def grade(self, ctx, work, text_answer):
         system = prompts.GRADE_SYSTEM + "\n\n" + prompts.grading_context(ctx)
         parts = [*(self._image(i) for i in work), prompts.grade_request(text_answer, len(work))]
-        return await self._generate(system=system, parts=parts, schema=GradeResult)
+        # Fikrlash xarajatning asosiy qismi: tekshiruvda cheklangan (sozlamada)
+        return await self._generate(
+            system=system, parts=parts, schema=GradeResult, thinking=get_settings().ai_grade_thinking_budget
+        )
+
+    async def explain(self, request):
+        # Matnli kichik so'rov: arzon model, fikrlashsiz. Band bo'lsa — asosiy model va zaxiralar
+        explain_model = get_settings().gemini_explain_model
+        models = [explain_model, *(m for m in [self.model, *self.fallback_models] if m != explain_model)]
+        return await self._generate(
+            system=prompts.EXPLAIN_SYSTEM, parts=[request], schema=Explanation, thinking=False, models=models
+        )
 
 
 class FakeProvider:
@@ -359,17 +391,22 @@ class FakeProvider:
     async def grade(self, ctx, work, text_answer):
         numbers = [str(i.get("number")) for i in ctx.items] or [c["name"] for c in ctx.rubric] or ["1"]
         graded = [
-            GradedItem(number=n, verdict="correct" if k % 4 else "partial", comment="" if k % 4 else "Hisobda kichik xato")
+            GradedItem(number=n, verdict="correct" if k % 4 else "partial", student_answer=str(k),
+                       comment="" if k % 4 else "Hisobda kichik xato")
             for k, n in enumerate(numbers, start=1)
         ]
         return GradeResult(
             matches_assignment=True,
             items=graded,
             score_percent=85,
-            feedback_student="Yaxshi ish! Bitta misolda hisobni qayta tekshiring.",
+            feedback_student="Yaxshi harakat, shunday davom eting!",
             note_teacher="Umuman yaxshi, hisoblashda shoshilyapti.",
             confidence=0.9,
         ), self._usage()
+
+    async def explain(self, request):
+        text = "Javobingizda hisoblashda xato bor. Har bir qadamni qayta tekshirib chiqing."
+        return Explanation(text=text), self._usage()
 
 
 def _expand_hint(hint: str | None) -> list[str]:

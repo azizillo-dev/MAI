@@ -100,6 +100,11 @@ class SubmissionOut(Schema):
     grading_scale: str
 
 
+class ExplainOut(Schema):
+    number: str
+    explanation: str
+
+
 class ReviewIn(Schema):
     score: float = Field(ge=0, le=100)
     comment: str | None = Field(default=None, max_length=1000)

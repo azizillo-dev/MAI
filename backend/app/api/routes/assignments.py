@@ -27,6 +27,7 @@ from app.schemas.assignments import (
     BookOut,
     BookUpdateIn,
     ContentUpdateIn,
+    ExplainOut,
     ReviewIn,
     StudentAssignmentOut,
     SubmissionOut,
@@ -95,8 +96,9 @@ def submission_out(s: Submission, *, for_teacher: bool) -> SubmissionOut:
         attempt=s.attempt,
         text_answer=s.text_answer,
         file_urls=[signed_url(f.file_key) for f in s.files],
-        # Ustoz tekshirmaguncha (needs_review) AI xulosasi o'quvchiga ko'rsatilmaydi
-        ai_items=s.ai_items if visible else [],
+        # Ustoz tekshirmaguncha (needs_review) AI xulosasi o'quvchiga ko'rsatilmaydi.
+        # Qisqa belgi (comment) — ustoz uchun; o'quvchi tushuntirishni "Nega?" bilan so'raydi
+        ai_items=list(s.ai_items or []) if for_teacher else ([_student_item(i) for i in s.ai_items or []] if visible else []),
         ai_confidence=s.ai_confidence if for_teacher else None,
         ai_matches_assignment=s.ai_matches_assignment if for_teacher else None,
         feedback_student=s.feedback_student if visible else None,
@@ -107,6 +109,10 @@ def submission_out(s: Submission, *, for_teacher: bool) -> SubmissionOut:
         final_score=s.final_score if visible else None,
         grading_scale=s.assignment.group.grading_scale,
     )
+
+
+def _student_item(item: dict) -> dict:
+    return {k: v for k, v in item.items() if k != "comment"}
 
 
 async def _stats(db: DB, a: Assignment) -> SubmissionStats:
@@ -406,6 +412,12 @@ async def student_assignments(
 @router.get("/api/v1/student/assignments/{assignment_id}", response_model=StudentAssignmentOut)
 async def student_assignment(assignment_id: uuid.UUID, student: CurrentStudent, db: DB) -> StudentAssignmentOut:
     return await _student_view(db, student, await svc.get_student_assignment(db, student, assignment_id))
+
+
+@router.post("/api/v1/student/submissions/{submission_id}/items/{number}/explain", response_model=ExplainOut)
+async def explain_item(submission_id: uuid.UUID, number: str, student: CurrentStudent, db: DB) -> ExplainOut:
+    text = await svc.explain_item(db, student, submission_id, number)
+    return ExplainOut(number=number, explanation=text)
 
 
 @router.post("/api/v1/student/assignments/{assignment_id}/submission", response_model=StudentAssignmentOut, status_code=201)

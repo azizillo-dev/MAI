@@ -46,7 +46,7 @@ DEFAULT_ECONOMICS = {
 }
 
 DEFAULT_DOWNLOADS = {
-    "version": "1.1.1",
+    "version": "1.2.0",
     "arm64_url": "/downloads/MentorAI-arm64.apk",
     "legacy_url": "/downloads/MentorAI-eski-telefonlar.apk",
     "arm64_size_mb": 30,

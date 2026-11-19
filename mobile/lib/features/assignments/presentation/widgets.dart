@@ -1,12 +1,17 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/network/media_cache.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/formatters.dart';
+import '../../../core/network/api_exception.dart';
 import '../../../core/widgets/app_widgets.dart';
+import '../../../core/widgets/math_text.dart';
 import '../data/assignment_models.dart';
+import '../data/assignments_repository.dart';
 
 /// Tarmoqdagi rasm: yuklanayotganda skelet, xato bo'lsa ikonka (ekran "sakramaydi").
 class NetImage extends StatelessWidget {
@@ -148,11 +153,15 @@ class DueChip extends StatelessWidget {
   };
 }
 
-/// AI xulosasi: har bir misol bo'yicha
+/// AI xulosasi: har bir misol bo'yicha.
+///
+/// Ustoz ko'rinishida — qisqa belgi (xato qayerda). O'quvchi ko'rinishida ([askSubmissionId] berilsa)
+/// xato misol tagida "Nega?" tugmasi: bosilganda AI shu misolni 2-3 sodda gap bilan tushuntiradi.
 class GradedItemsList extends StatelessWidget {
-  const GradedItemsList({super.key, required this.items});
+  const GradedItemsList({super.key, required this.items, this.askSubmissionId});
 
   final List<GradedItem> items;
+  final String? askSubmissionId;
 
   @override
   Widget build(BuildContext context) {
@@ -160,25 +169,201 @@ class GradedItemsList extends StatelessWidget {
       child: Column(
         children: [
           for (final (i, item) in items.indexed) ...[
-            if (i > 0) const Divider(height: 1, indent: 56),
-            Builder(builder: (context) {
-              final (fg, bg, icon) = verdictStyle(context, item.verdict);
-              return ListTile(
-                leading: Container(
-                  width: 36,
-                  height: 36,
-                  decoration: BoxDecoration(color: bg, shape: BoxShape.circle),
-                  child: Icon(icon, color: fg, size: 22),
-                ),
-                title: Text(
-                  item.number.length <= 6 ? '${item.number}-misol' : item.number,
-                  style: context.text.titleMedium,
-                ),
-                subtitle: item.comment.isEmpty ? null : Text(item.comment),
-                trailing: Text(item.verdict.label, style: TextStyle(color: fg, fontWeight: FontWeight.w700)),
-              );
-            }),
+            if (i > 0) const Divider(height: 1, indent: 64),
+            _GradedItemRow(key: ValueKey(item.number), item: item, askSubmissionId: askSubmissionId),
           ],
+        ],
+      ),
+    );
+  }
+}
+
+class _GradedItemRow extends ConsumerStatefulWidget {
+  const _GradedItemRow({super.key, required this.item, this.askSubmissionId});
+
+  final GradedItem item;
+  final String? askSubmissionId;
+
+  @override
+  ConsumerState<_GradedItemRow> createState() => _GradedItemRowState();
+}
+
+class _GradedItemRowState extends ConsumerState<_GradedItemRow> {
+  late String? _explanation = widget.item.explanation;
+  bool _loading = false;
+  String? _error;
+
+  Future<void> _ask() async {
+    final id = widget.askSubmissionId;
+    if (id == null || _loading) return;
+    HapticFeedback.selectionClick();
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    try {
+      final text = await ref.read(assignmentsRepositoryProvider).explainItem(id, widget.item.number);
+      if (mounted) setState(() => _explanation = text);
+    } on Object catch (e) {
+      if (mounted) setState(() => _error = errorText(e));
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final item = widget.item;
+    final (fg, bg, icon) = verdictStyle(context, item.verdict);
+    final student = widget.askSubmissionId != null;
+    final canAsk = student && item.isWrong;
+    final title = item.number.length <= 6 ? '${item.number}-misol' : item.number;
+    final muted = context.colors.onSurfaceVariant;
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 12, 12, 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 36,
+                height: 36,
+                decoration: BoxDecoration(color: bg, shape: BoxShape.circle),
+                child: Icon(icon, color: fg, size: 22),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(title, style: context.text.titleMedium),
+                    if (student && item.isWrong && item.studentAnswer.isNotEmpty)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 2),
+                        child: MathText(
+                          'Javobingiz: ${item.studentAnswer}',
+                          style: context.text.bodySmall?.copyWith(color: muted),
+                        ),
+                      )
+                    else if (!student && item.comment.isNotEmpty)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 2),
+                        child: Text(item.comment, style: context.text.bodyMedium?.copyWith(color: muted)),
+                      ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              if (canAsk && _explanation == null)
+                _WhyButton(loading: _loading, onPressed: _ask)
+              else
+                Padding(
+                  padding: const EdgeInsets.only(right: 4),
+                  child: Text(item.verdict.label, style: TextStyle(color: fg, fontWeight: FontWeight.w700)),
+                ),
+            ],
+          ),
+          AnimatedSize(
+            duration: const Duration(milliseconds: 220),
+            curve: Curves.easeOutCubic,
+            alignment: Alignment.topCenter,
+            child: _explanation != null
+                ? _ExplanationBox(text: _explanation!)
+                : _error != null
+                    ? Padding(
+                        padding: const EdgeInsets.only(left: 48, top: 8),
+                        child: Text(_error!, style: context.text.bodySmall?.copyWith(color: context.appColors.danger)),
+                      )
+                    : const SizedBox(width: double.infinity),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _WhyButton extends StatelessWidget {
+  const _WhyButton({required this.loading, required this.onPressed});
+
+  final bool loading;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final primary = context.colors.primary;
+    return Semantics(
+      button: true,
+      label: 'Nega xato? Tushuntirish',
+      child: Material(
+        color: primary.withValues(alpha: 0.1),
+        shape: const StadiumBorder(),
+        child: InkWell(
+          customBorder: const StadiumBorder(),
+          onTap: loading ? null : onPressed,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            child: AnimatedSwitcher(
+              duration: const Duration(milliseconds: 160),
+              child: loading
+                  ? SizedBox(
+                      key: const ValueKey('l'),
+                      width: 46,
+                      height: 18,
+                      child: Center(
+                        child: SizedBox.square(
+                          dimension: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2, color: primary),
+                        ),
+                      ),
+                    )
+                  : Row(
+                      key: const ValueKey('t'),
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.help_outline_rounded, size: 18, color: primary),
+                        const SizedBox(width: 4),
+                        Text('Nega?', style: TextStyle(color: primary, fontWeight: FontWeight.w700)),
+                      ],
+                    ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ExplanationBox extends StatelessWidget {
+  const _ExplanationBox({required this.text});
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    final primary = context.colors.primary;
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(left: 48, top: 10),
+      padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
+      decoration: BoxDecoration(
+        color: primary.withValues(alpha: 0.06),
+        borderRadius: BorderRadius.circular(Radii.md),
+        border: Border(left: BorderSide(color: primary.withValues(alpha: 0.5), width: 3)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.auto_awesome_rounded, size: 15, color: primary),
+              const SizedBox(width: 6),
+              Text('Nega xato?', style: context.text.labelMedium?.copyWith(color: primary, fontWeight: FontWeight.w700)),
+            ],
+          ),
+          const SizedBox(height: 6),
+          MathText(text, style: context.text.bodyMedium?.copyWith(height: 1.45)),
         ],
       ),
     );

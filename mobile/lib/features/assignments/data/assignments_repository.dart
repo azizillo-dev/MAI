@@ -182,6 +182,14 @@ class AssignmentsRepository {
         return StudentAssignment.fromJson(r.data!);
       });
 
+  /// "Nega?": bitta xato misolni 2-3 gap bilan tushuntirish (server saqlaydi, qayta so'rash bepul)
+  Future<String> explainItem(String submissionId, String number) => guard(() async {
+        final r = await _dio.post<Map<String, dynamic>>(
+          '/student/submissions/$submissionId/items/${Uri.encodeComponent(number)}/explain',
+        );
+        return r.data!['explanation'] as String;
+      });
+
   Future<StudentAssignment> submit(
     String assignmentId, {
     required List<String> imagePaths,

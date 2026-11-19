@@ -16,6 +16,7 @@ from pypdf import PdfReader, PdfWriter
 from sqlalchemy import func, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.ai import prompts
 from app.ai.provider import AiError, GradingContext, Image, Usage, get_provider
 from app.core.config import get_settings
 from app.core.errors import AppError, Conflict, Forbidden, NotFound
@@ -659,3 +660,79 @@ async def resume_pending() -> None:
                 Submission.status == SubmissionStatus.GRADING,
                 or_(Submission.ai_lease_until.is_(None), Submission.ai_lease_until < now))):
             jobs.spawn(grade_submission, sid)
+
+
+# ---------------------------------------------------------------- "Nega?" — bitta misolni tushuntirish
+
+EXPLAINABLE = ("incorrect", "partial", "missing")
+
+
+async def explain_item(db: AsyncSession, student: User, submission_id: uuid.UUID, number: str) -> str:
+    """O'quvchi xato misol tagidagi "Nega?" ni bosganda: 2-3 gapli sodda tushuntirish.
+
+    Tekshiruvda AI faqat baho va qisqa belgini yozadi (token tejaladi); tushuntirish shu yerda,
+    so'ralgandagina, rasmni qayta yubormasdan — misol sharti, to'g'ri javob va o'quvchi javobi bilan
+    arzon modelda yoziladi. Javob ishning o'zida saqlanadi: qayta bosish bepul.
+    """
+    s = get_settings()
+    sub = await db.get(Submission, submission_id)
+    if sub is None or sub.student_id != student.id or sub.status != SubmissionStatus.GRADED:
+        raise NotFound("SUBMISSION_NOT_FOUND", "Ish topilmadi")
+    items = list(sub.ai_items or [])
+    idx = next((i for i, it in enumerate(items) if str(it.get("number")) == number), None)
+    if idx is None:
+        raise NotFound("ITEM_NOT_FOUND", "Misol topilmadi")
+    item = items[idx]
+    # Qayta topshirish mumkin bo'lsa — faqat yo'naltiradi (javobni ko'chirib qayta topshirmasin),
+    # muddat tugagach yoki ustoz baholagach — to'g'ri javob bilan to'liq tushuntiradi
+    a = sub.assignment
+    reveal = (
+        sub.reviewed_at is not None or utcnow() > as_utc(a.due_at) or sub.attempt >= MAX_RESUBMITS
+    )
+    mode = "full" if reveal else "hint"
+    if item.get("explanation") and (item.get("explanation_mode") == mode or mode == "hint"):
+        return item["explanation"]
+    if item.get("verdict") not in EXPLAINABLE:
+        raise AppError("ITEM_CORRECT", "Bu misol to'g'ri yechilgan", 422)
+
+    since = utcnow() - timedelta(days=1)
+    used = await db.scalar(
+        select(func.count()).select_from(AiRun)
+        .join(Submission, Submission.id == AiRun.submission_id)
+        .where(AiRun.kind == "explain", Submission.student_id == student.id, AiRun.created_at >= since)
+    )
+    if (used or 0) >= s.ai_explain_daily_limit:
+        raise AppError("EXPLAIN_LIMIT", "Bugungi tushuntirishlar tugadi. Ertaga yana so'rashingiz mumkin", 429)
+
+    teacher = await db.get(User, a.teacher_id)
+    answers = (teacher.teacher.onboarding_answers if teacher and teacher.teacher else {}) or {}
+    source = next((x for x in (a.items or []) if str(x.get("number")) == number), {})
+    request = prompts.explain_request(
+        subject=a.group.subject,
+        language=answers.get("feedback_language", "uz"),
+        statement=source.get("text"),
+        reference=source.get("answer"),
+        student_answer=item.get("student_answer"),
+        verdict=item.get("verdict", "incorrect"),
+        teacher_note=item.get("comment"),
+        reveal_answer=reveal,
+    )
+    teacher_id = a.teacher_id
+    await db.commit()  # AI javobini kutganda bazaga ulanish band turmasin
+
+    try:
+        result, usage = await get_provider().explain(request)
+    except AiError as exc:
+        await _log_run(db, "explain", None, teacher_id=teacher_id, submission_id=submission_id, error=str(exc))
+        await db.commit()
+        raise AppError("AI_BUSY", "AI hozir band. Birozdan keyin qayta urinib ko'ring", 503) from exc
+
+    text = " ".join(result.text.split())[:600]
+    sub = await db.get(Submission, submission_id)
+    items = list(sub.ai_items or [])
+    if idx < len(items) and str(items[idx].get("number")) == number:
+        items[idx] = {**items[idx], "explanation": text, "explanation_mode": mode}
+        sub.ai_items = items  # yangi ro'yxat: JSON ustuni o'zgargani aniqlanadi
+    await _log_run(db, "explain", usage, teacher_id=teacher_id, submission_id=submission_id)
+    await db.commit()
+    return text

@@ -76,6 +76,15 @@ class Settings(BaseSettings):
     gemini_fallback_models: str = "gemini-3.5-flash,gemini-3.8-flash,gemini-flash-latest,gemini-3.5-flash-lite"
     # Shu ishonchdan past natija o'quvchiga chiqmaydi, avval ustoz ko'radi
     ai_min_confidence: float = 0.7
+    # Tekshiruvda AI fikrlash (thinking) chegarasi. Xarajatning asosiy qismi shu: misollarning to'g'ri
+    # javobi ma'lum bo'lsa, AI ularni qaytadan yechmaydi — 4k yetadi. Zich daftarlarda baho sifati
+    # tushsa (ai_runs, ustoz tuzatishlari), oshiring
+    ai_grade_thinking_budget: int = 4096
+    # "Nega?" — o'quvchi so'raganda bitta misolni tushuntirish: arzon model, fikrlashsiz.
+    # Band bo'lsa asosiy model va zaxiralar navbat bilan sinaladi
+    gemini_explain_model: str = "gemini-3.5-flash-lite"
+    # Bitta o'quvchi bir sutkada ko'pi bilan shuncha "Nega?" so'ray oladi (javob saqlanadi, qayta bosish bepul)
+    ai_explain_daily_limit: int = 40
     # Reyting va progress keshi (soniya). O'zgarish bo'lsa shu jarayonda darhol tozalanadi
     stats_cache_seconds: float = 30
     # O'quvchining vazifalar ro'yxati: eng so'nggi shuncha vazifa (bir chorakdan ko'p)

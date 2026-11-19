@@ -417,7 +417,7 @@ class _ResultSection extends StatelessWidget {
         if (s.aiItems.isNotEmpty) ...[
           const SizedBox(height: 18),
           const SectionTitle("Misollar bo'yicha"),
-          GradedItemsList(items: s.aiItems),
+          GradedItemsList(items: s.aiItems, askSubmissionId: s.id),
         ],
         if (s.fileUrls.isNotEmpty) ...[
           const SizedBox(height: 18),

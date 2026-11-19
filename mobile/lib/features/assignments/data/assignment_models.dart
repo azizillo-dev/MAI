@@ -200,16 +200,34 @@ enum Verdict {
 }
 
 class GradedItem {
-  const GradedItem({required this.number, required this.verdict, required this.comment});
+  const GradedItem({
+    required this.number,
+    required this.verdict,
+    required this.comment,
+    this.studentAnswer = '',
+    this.explanation,
+  });
 
   final String number;
   final Verdict verdict;
+
+  /// Ustoz uchun qisqa belgi (o'quvchiga server yubormaydi)
   final String comment;
+
+  /// O'quvchi yozgan yakuniy javob (AI daftardan ko'chirgan)
+  final String studentAnswer;
+
+  /// "Nega?" bosilgandan keyin saqlangan tushuntirish
+  final String? explanation;
+
+  bool get isWrong => verdict != Verdict.correct;
 
   factory GradedItem.fromJson(Map<String, dynamic> j) => GradedItem(
         number: j['number'].toString(),
         verdict: Verdict.parse(j['verdict'] as String?),
         comment: j['comment'] as String? ?? '',
+        studentAnswer: j['student_answer'] as String? ?? '',
+        explanation: j['explanation'] as String?,
       );
 }
 

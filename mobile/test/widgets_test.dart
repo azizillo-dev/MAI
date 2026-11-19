@@ -4,7 +4,10 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mentor_ai/core/theme/app_colors.dart';
 import 'package:mentor_ai/core/theme/app_theme.dart';
 import 'package:mentor_ai/core/widgets/otp_field.dart';
+import 'package:mentor_ai/features/assignments/data/assignment_models.dart';
+import 'package:mentor_ai/features/assignments/presentation/widgets.dart';
 import 'package:mentor_ai/features/auth/presentation/welcome_screen.dart';
+import 'package:mentor_ai/features/auth/presentation/email_screen.dart';
 
 Widget _wrap(Widget child, {Brightness brightness = Brightness.light}) => ProviderScope(
       child: MaterialApp(theme: buildTheme(brightness, AccentColor.indigo.color), home: child),
@@ -46,5 +49,38 @@ void main() {
     expect(find.text('1'), findsOneWidget);
     expect(find.text('6'), findsOneWidget);
     await tester.pumpAndSettle();
+  });
+
+  testWidgets("Natija: o'quvchida xato misol tagida \"Nega?\", ustozda qisqa belgi", (tester) async {
+    const items = [
+      GradedItem(number: '1', verdict: Verdict.correct, comment: ''),
+      GradedItem(number: '2', verdict: Verdict.incorrect, comment: 'Maxraj xato', studentAnswer: r'$rac{3}{5}$'),
+      GradedItem(number: '3', verdict: Verdict.partial, comment: '', explanation: 'Qavsni ochishda ishora almashadi.'),
+    ];
+    await tester.pumpWidget(_wrap(const Scaffold(body: SingleChildScrollView(
+      child: GradedItemsList(items: items, askSubmissionId: 's1'),
+    ))));
+    expect(find.text('Nega?'), findsOneWidget); // faqat tushuntirilmagan xato misolda
+    expect(find.text('Qavsni ochishda ishora almashadi.'), findsOneWidget);
+    expect(find.text('Maxraj xato'), findsNothing);
+
+    await tester.pumpWidget(_wrap(const Scaffold(body: SingleChildScrollView(child: GradedItemsList(items: items)))));
+    expect(find.text('Nega?'), findsNothing);
+    expect(find.text('Maxraj xato'), findsOneWidget);
+  });
+
+  testWidgets("Email: '@' ikonkasi yo'q, domen tugmasi manzilni to'ldiradi", (tester) async {
+    await tester.pumpWidget(_wrap(const EmailScreen()));
+    expect(find.byIcon(Icons.alternate_email_rounded), findsNothing);
+    await tester.enterText(find.byType(TextField), 'ali');
+    await tester.pumpAndSettle(); // tugmalar ochilish animatsiyasi
+    expect(find.text('@gmail.com'), findsOneWidget);
+    await tester.tap(find.text('@gmail.com'));
+    await tester.pump();
+    expect(tester.widget<TextField>(find.byType(TextField)).controller!.text, 'ali@gmail.com');
+
+    await tester.enterText(find.byType(TextField), 'ali@gmial.com');
+    await tester.pumpAndSettle();
+    expect(find.textContaining('ali@gmail.com', findRichText: true), findsOneWidget); // "Balki ...?"
   });
 }

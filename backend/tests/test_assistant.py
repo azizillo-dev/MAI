@@ -79,7 +79,7 @@ async def test_new_tools_below_threshold_topics_and_create(client, monkeypatch):
     async def graded(ctx, work, text):
         pct = next(scores)
         verdict = "correct" if pct > 50 else "incorrect"
-        items = [GradedItem(number=str(i.get("number")), verdict=verdict, comment="" if pct > 50 else "Maxrajni unutgan")
+        items = [GradedItem(number=str(i.get("number")), verdict=verdict, student_answer="", comment="" if pct > 50 else "Maxrajni unutgan")
                  for i in ctx.items]
         return GradeResult(matches_assignment=True, items=items, score_percent=pct, feedback_student="...",
                            note_teacher="...", confidence=0.95), (await real(ctx, work, text))[1]

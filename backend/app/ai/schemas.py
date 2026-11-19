@@ -43,13 +43,21 @@ Verdict = Literal["correct", "partial", "incorrect", "missing"]
 class GradedItem(BaseModel):
     number: str
     verdict: Verdict
-    comment: str = Field(description="Qisqa izoh: xato qayerda. To'g'ri bo'lsa bo'sh qoldirish mumkin")
+    student_answer: str = Field(
+        description="O'quvchi yozgan yakuniy javob, qisqa (40 belgigacha). Topilmasa bo'sh. "
+        "\"Nega?\" tushuntirishi rasmni qayta yubormasdan shundan foydalanadi"
+    )
+    comment: str = Field(description="Ustoz uchun 3-8 so'z: xato qayerda. To'g'ri bo'lsa bo'sh")
 
 
 class GradeResult(BaseModel):
     matches_assignment: bool = Field(description="Yuborilgan ish aynan shu vazifaga tegishlimi")
     items: list[GradedItem]
     score_percent: int = Field(description="0-100")
-    feedback_student: str = Field(description="O'quvchiga 2-4 gaplik iliq, aniq izoh")
-    note_teacher: str = Field(description="Ustozga 1-2 gaplik xulosa: o'quvchi nimada qiynalyapti")
+    feedback_student: str = Field(description="O'quvchiga bitta qisqa rag'bat gapi (xatolarni tushuntirmaydi)")
+    note_teacher: str = Field(description="Ustozga bitta gap: o'quvchi nimada qiynalyapti")
     confidence: float = Field(description="0.0-1.0: rasm sifati va baholash ishonchliligi")
+
+
+class Explanation(BaseModel):
+    text: str = Field(description="O'quvchiga 2-3 ta juda sodda gap: nega xato va to'g'ri yo'l qanday")

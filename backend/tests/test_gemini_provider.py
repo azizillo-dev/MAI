@@ -47,7 +47,7 @@ CTX = ai.GradingContext(
     instructions=None, items=[{"number": "1", "text": "1/2+1/4", "answer": "3/4"}],
 )
 GOOD = GradeResult(
-    matches_assignment=True, items=[GradedItem(number="1", verdict="correct", comment="")],
+    matches_assignment=True, items=[GradedItem(number="1", verdict="correct", student_answer="2", comment="")],
     score_percent=100, feedback_student="Zo'r!", note_teacher="Yaxshi", confidence=0.95,
 )
 
