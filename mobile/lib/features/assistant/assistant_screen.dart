@@ -123,7 +123,7 @@ class _Intro extends ConsumerWidget {
       if (student != null) '${student.fullName} qanday o\'qiyapti?',
       if (first != null) '«${first.name}» guruhida oxirgi 3 ta vazifada kim 70% dan past oldi?',
       if (first != null) '«${first.name}» guruhi qaysi mavzuda eng ko\'p qiynalyapti?',
-      if (first != null) '«${first.name}» guruhiga kasrlar bo\'yicha 10 ta o\'rtacha misol ber',
+      if (first != null) '«${first.name}» guruhiga eng qiyin mavzu bo\'yicha 10 ta mashq tuzib ber',
       if (groups.length > 1) 'Guruhlarimni solishtirib ber',
     ];
 

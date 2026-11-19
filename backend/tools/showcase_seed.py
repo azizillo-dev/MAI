@@ -41,8 +41,9 @@ from app.services.storage import get_storage
 GROUP_NAME = "007 Diskret Tuzilmalari"
 NOW = datetime.now(UTC)
 
+# Birinchisi — guruhning eng yaxshi talabasi (skrinshotlardagi o'quvchi akkaunti, talaba01@...)
 STUDENTS = [
-    "Jasur Aliyev", "Madina Yusupova", "Sardor Rahimov", "Nodira Ergasheva", "Bekzod Toshmatov", "Malika Qodirova",
+    "Ogulzoda Kurbanmuratova", "Madina Yusupova", "Sardor Rahimov", "Nodira Ergasheva", "Bekzod Toshmatov", "Malika Qodirova",
     "Otabek Nazarov", "Zarina Karimova", "Javohir Umarov", "Shahzoda Tursunova", "Diyor Hasanov", "Sevara Mirzayeva",
     "Asadbek Sobirov", "Kamola Rashidova", "Azizbek Yo'ldoshev", "Mohira Abdullayeva", "Temur Ismoilov",
     "Dilfuza Normatova", "Ulug'bek Saidov", "Gulnoza Xolmatova", "Shoxrux Qosimov", "Lola Ahmedova",
@@ -140,15 +141,16 @@ DRAFT = ("Bul algebrasi", [
     (r"$(x \lor y)(x \lor \bar{y})$ ni soddalashtiring", r"$x$"),
 ])
 
+# Har qanday mavzudagi misolga tushishi mumkin — mavzuga bog'lanmagan izohlar
 COMMENTS = [
-    "Chinlik jadvalida bitta satr noto'g'ri", "De Morgan qonunida inkor to'g'ri kiritilmagan",
-    "Induksion o'tish isbotlanmagan, faqat baza tekshirilgan", "Kombinatsiya va o'rinlashtirish adashtirilgan",
-    "Tranzitivlik sharti tekshirilmagan", "Darajalar yig'indisi hisobida xato", "Javob asoslanmagan",
+    "Hisoblashda xato", "Ta'rif noto'g'ri qo'llangan", "Shartning bir qismi hisobga olinmagan",
+    "Oraliq qadam tushib qolgan", "Javob to'liq emas", "Belgilashda xato", "Javob asoslanmagan",
 ]
 FEEDBACK = [
     "Yaxshi ish! Deyarli hammasi to'g'ri, faqat oxirgi misolda qavslarga e'tibor bering.",
-    "Isbotning bazasi to'g'ri, lekin induksion o'tishni to'liq yozing.",
-    "Kombinatorika masalalarida avval tartib muhimmi yoki yo'qmi — shuni aniqlang.",
+    # Izohlar tasodifiy tanlanadi, shuning uchun har qanday mavzuga mos bo'lishi kerak
+    "Javoblar to'g'ri, lekin har bir qadamni asoslab yozing.",
+    "Ta'riflarni yaxshi bilasiz. Javob yozishdan oldin shartni yana bir bor o'qib chiqing.",
     "Barakalla, yechimlar aniq va asoslangan. Shunday davom eting!",
     "Ba'zi javoblar to'g'ri, ammo asoslash yetishmaydi. Har bir qadamni yozing.",
 ]
@@ -245,27 +247,39 @@ async def seed(email: str, photo: Path | None, do_remove: bool, review_photo: Pa
             hardness = {"Matematik induksiya": -14, "Rekurrent munosabatlar": -9,
                         "Mantiqiy ekvivalentlik va normal formalar": -6}.get(title, 0)
             for idx, (u, ability, slope) in enumerate(students):
-                if not past and rnd.random() < 0.55:
+                # Skrinshotlardagi talaba: hammasini o'z vaqtida topshiradi (seriya, 1-o'rin),
+                # faqat eng oxirgi ochiq vazifa "Topshirish kerak" ro'yxatida qoladi
+                star = idx == 0
+                review = past and k == n_past - 1 and idx in (3, 9)  # AI ishonchi past — ustoz ko'rishi kerak
+                if star and k == len(TASKS) - 1:
+                    continue
+                if not star and not past and rnd.random() < 0.55:
                     continue  # ochiq vazifani hali topshirmaganlar
-                if past and rnd.random() < 0.07:
+                if not star and past and rnd.random() < 0.07 and not review:
                     continue  # topshirmaganlar
                 week = k / max(1, n_past - 1) * 8
                 pct = max(15.0, min(100.0, ability + hardness + slope * (week - 4) + rnd.gauss(0, 6)))
-                late = rnd.random() < 0.1
+                late = not star and rnd.random() < 0.1
                 at = due - timedelta(hours=rnd.randint(2, 70)) if not late else due + timedelta(hours=rnd.randint(1, 20))
+                if at > NOW - timedelta(hours=1):
+                    # Ochiq vazifa: e'lon qilingandan hozirgacha bo'lgan oraliqda topshirilgan
+                    published = due - timedelta(days=4)
+                    at = published + (NOW - timedelta(hours=1) - published) * rnd.uniform(0.05, 0.6)
                 ai_items = []
                 for it in items:
                     ok = rnd.random() < pct / 100
                     ai_items.append({"number": it["number"], "verdict": "correct" if ok else rnd.choice(["incorrect", "partial"]),
                                      "comment": "" if ok else rnd.choice(COMMENTS)})
                 status, final = "graded", to_scale(pct, "5")
-                if past and k == n_past - 1 and idx in (3, 9):
-                    status, final = "needs_review", None  # AI ishonchi past — ustoz ko'rishi kerak
+                if review:
+                    status, final = "needs_review", None
+                    ai_items[2] = {"number": "3", "verdict": "partial",
+                                   "comment": "Rasm xira: javob aniq o'qilmadi, qo'lda tekshiring"}
                 s = Submission(assignment_id=a.id, student_id=u.id, submitted_at=at, is_late=late, attempt=1,
                                status=status, ai_items=ai_items, ai_score_percent=round(pct, 1),
                                ai_confidence=0.94 if status == "graded" else 0.55, ai_matches_assignment=True,
                                feedback_student=rnd.choice(FEEDBACK),
-                               note_teacher="Formal isbotlarda qadamlarni tushirib qoldiryapti, induksiyani takrorlash kerak."
+                               note_teacher="Yechimda oraliq qadamlarni tushirib qoldiryapti, javoblarni asoslashga e'tibor bering."
                                if status == "graded" else "Rasm biroz xira, 3-misolni qo'lda tekshiring.",
                                graded_at=at + timedelta(minutes=1) if status == "graded" else None, final_score=final)
                 db.add(s)
@@ -296,7 +310,7 @@ async def seed(email: str, photo: Path | None, do_remove: bool, review_photo: Pa
                                   sha256=secrets.token_hex(32)))
 
         # Ustoz sovg'alari (demo uchun berilgan jetonlar "demo" turida yoziladi — sotuvga kirmaydi)
-        gifts = [(0, "sinf_yulduzi", "Sinf yulduzi", "star", "gold", "Barakalla, Jasur! Guruhdagi eng yaxshi natija!"),
+        gifts = [(0, "sinf_yulduzi", "Sinf yulduzi", "star", "gold", "Barakalla, Ogulzoda! Guruhdagi eng yaxshi natija!"),
                  (1, "oltin_qalam", "Oltin qalam", "pen", "gold", "Isbotlaring juda toza va tartibli!"),
                  (0, "aql_chirogi", "Aql chirog'i", "lightbulb", "purple", "Rekurrent tenglamani o'zgacha usulda yechding — zo'r!")]
         for code in {c for _, c, *_ in gifts}:
