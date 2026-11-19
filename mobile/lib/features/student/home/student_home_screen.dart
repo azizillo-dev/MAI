@@ -7,6 +7,7 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/formatters.dart';
 import '../../../core/widgets/app_widgets.dart';
+import '../../../core/widgets/motion.dart';
 import '../../assignments/data/assignments_repository.dart';
 import '../../assignments/presentation/student/student_tasks_screen.dart';
 import '../../auth/application/auth_controller.dart';
@@ -56,7 +57,7 @@ class StudentHomeScreen extends ConsumerWidget {
                 hasScrollBody: false,
                 child: memberships.hasError
                     ? ErrorRetry(error: memberships.error!, onRetry: refresh)
-                    : const Center(child: CircularProgressIndicator()),
+                    : const SkeletonList(count: 4),
               )
             else if (list.isEmpty)
               SliverFillRemaining(

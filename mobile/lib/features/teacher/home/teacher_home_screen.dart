@@ -7,6 +7,7 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/formatters.dart';
 import '../../../core/widgets/app_widgets.dart';
+import '../../../core/widgets/motion.dart';
 import '../../assignments/data/assignment_models.dart' show scoreText;
 import '../../assignments/data/assignments_repository.dart';
 import '../../auth/application/auth_controller.dart';
@@ -77,7 +78,7 @@ class _TeacherHomeScreenState extends ConsumerState<TeacherHomeScreen> {
                       hasScrollBody: false,
                       child: (groups.hasError || dash.hasError)
                           ? ErrorRetry(error: (groups.error ?? dash.error)!, onRetry: refresh)
-                          : const Center(child: CircularProgressIndicator()),
+                          : const SkeletonList(count: 4),
                     )
                   else if (groupList.isEmpty)
                     SliverFillRemaining(
@@ -439,67 +440,70 @@ class _ActionTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Expanded(
-      child: Material(
-        color: filled ? color : context.colors.surface,
-        borderRadius: BorderRadius.circular(Radii.lg),
-        child: InkWell(
+      child: Pressable(
+        onTap: onTap,
+        child: Material(
+          color: filled ? color : context.colors.surface,
           borderRadius: BorderRadius.circular(Radii.lg),
-          onTap: () {
-            HapticFeedback.selectionClick();
-            onTap();
-          },
-          child: Container(
-            height: 100,
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(Radii.lg),
-              border: filled ? null : Border.all(color: context.colors.outlineVariant),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Container(
-                      width: 36,
-                      height: 36,
-                      decoration: BoxDecoration(
-                        color: filled ? Colors.white.withValues(alpha: 0.2) : color.withValues(alpha: 0.12),
-                        borderRadius: BorderRadius.circular(11),
-                      ),
-                      child: Icon(icon, size: 20, color: filled ? Colors.white : color),
-                    ),
-                    const Spacer(),
-                    if (badge > 0)
+          child: InkWell(
+            borderRadius: BorderRadius.circular(Radii.lg),
+            onTap: () {
+              HapticFeedback.selectionClick();
+              onTap();
+            },
+            child: Container(
+              height: 100,
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(Radii.lg),
+                border: filled ? null : Border.all(color: context.colors.outlineVariant),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                        width: 36,
+                        height: 36,
                         decoration: BoxDecoration(
-                          color: context.appColors.danger,
-                          borderRadius: BorderRadius.circular(100),
+                          color: filled ? Colors.white.withValues(alpha: 0.2) : color.withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(11),
                         ),
-                        child: Text(
-                          '$badge',
-                          style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w800),
-                        ),
+                        child: Icon(icon, size: 20, color: filled ? Colors.white : color),
                       ),
-                  ],
-                ),
-                const Spacer(),
-                FittedBox(
-                  fit: BoxFit.scaleDown,
-                  alignment: Alignment.centerLeft,
-                  child: Text(
-                    label,
-                    maxLines: 2,
-                    style: TextStyle(
-                      fontSize: 12.5,
-                      height: 1.2,
-                      fontWeight: FontWeight.w700,
-                      color: filled ? Colors.white : context.colors.onSurface,
+                      const Spacer(),
+                      if (badge > 0)
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: context.appColors.danger,
+                            borderRadius: BorderRadius.circular(100),
+                          ),
+                          child: Text(
+                            '$badge',
+                            style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w800),
+                          ),
+                        ),
+                    ],
+                  ),
+                  const Spacer(),
+                  FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      label,
+                      maxLines: 2,
+                      style: TextStyle(
+                        fontSize: 12.5,
+                        height: 1.2,
+                        fontWeight: FontWeight.w700,
+                        color: filled ? Colors.white : context.colors.onSurface,
+                      ),
                     ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),
@@ -600,6 +604,51 @@ class _WeeklyCard extends StatelessWidget {
         : avg >= 51
         ? c.warning
         : c.danger;
+    final quiet = d.stats.gradedThisWeek == 0 && d.activity.every((a) => a.count == 0);
+    if (quiet) {
+      return Card(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(18, 16, 18, 18),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Shu hafta', style: context.text.titleMedium),
+              const SizedBox(height: 14),
+              Row(
+                children: [
+                  Container(
+                    width: 44,
+                    height: 44,
+                    decoration: BoxDecoration(
+                      color: context.colors.primary.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    child: Icon(Icons.inbox_rounded, color: context.colors.primary),
+                  ),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Hali ish topshirilmadi',
+                          style: context.text.titleSmall?.copyWith(fontWeight: FontWeight.w700),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          "O'quvchilar ishini topshirishi bilan natija va faollik shu yerda chiqadi.",
+                          style: context.text.bodySmall?.copyWith(color: context.colors.onSurfaceVariant),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      );
+    }
     return Card(
       child: Padding(
         padding: const EdgeInsets.fromLTRB(18, 16, 18, 14),
@@ -854,11 +903,7 @@ class _RecentCard extends StatelessWidget {
               title: Text(r.studentName, style: context.text.titleMedium),
               subtitle: Text(r.assignmentTitle, maxLines: 1, overflow: TextOverflow.ellipsis),
               trailing: switch (r.status) {
-                'graded' => StatusChip(
-                  label: '${scoreText(r.finalScore ?? 0)} / ${r.gradingScale}',
-                  tone: StatusTone.success,
-                  icon: Icons.check_rounded,
-                ),
+                'graded' => _ScoreChip(score: r.finalScore ?? 0, scale: int.tryParse(r.gradingScale) ?? 5),
                 'failed' => const StatusChip(
                   label: "Qo'lda baholang",
                   tone: StatusTone.danger,
@@ -874,6 +919,27 @@ class _RecentCard extends StatelessWidget {
   }
 }
 
+/// Baho belgisi: a'lo — yashil, yaxshi — ko'k, qoniqarli — sariq, past — qizil
+class _ScoreChip extends StatelessWidget {
+  const _ScoreChip({required this.score, required this.scale});
+
+  final double score;
+  final int scale;
+
+  @override
+  Widget build(BuildContext context) {
+    final ratio = scale == 0 ? 0.0 : score / scale;
+    final tone = ratio >= 0.86
+        ? StatusTone.success
+        : ratio >= 0.71
+        ? StatusTone.info
+        : ratio >= 0.51
+        ? StatusTone.warning
+        : StatusTone.danger;
+    return StatusChip(label: '${scoreText(score)} / $scale', tone: tone);
+  }
+}
+
 // ---------------------------------------------------------------- Guruhlar
 
 class _GroupsStrip extends StatelessWidget {
@@ -886,71 +952,81 @@ class _GroupsStrip extends StatelessWidget {
     // 1–2 guruh sahifaga to'liq sig'adi (surish shart emas, chetga yopishmaydi);
     // 3+ guruhda gorizontal surish, ro'yxat ekran chetigacha yoyiladi
     final fits = groups.length <= 2;
+    // Har bir karta — alohida vidjet: temani o'z kontekstidan o'qiydi, tema jonli almashganda
+    // (tizimda qorong'i rejim yoqilsa) darhol yangilanadi
+    if (fits) {
+      return SizedBox(
+        height: 124,
+        child: Row(
+          children: [
+            for (final (i, g) in groups.indexed) ...[
+              if (i > 0) const SizedBox(width: 10),
+              Expanded(child: _GroupTile(g: g)),
+            ],
+          ],
+        ),
+      );
+    }
     return SizedBox(
       height: 124,
-      child: LayoutBuilder(builder: (context, c) {
-        final width = fits ? (c.maxWidth - 10 * (groups.length - 1)) / groups.length : 200.0;
-        final list = ListView.separated(
+      child: FullBleed(
+        child: ListView.separated(
           scrollDirection: Axis.horizontal,
-          physics: fits ? const NeverScrollableScrollPhysics() : null,
-          padding: fits ? EdgeInsets.zero : Insets.screen,
+          padding: Insets.screen,
           itemCount: groups.length,
           separatorBuilder: (_, _) => const SizedBox(width: 10),
-          itemBuilder: (context, i) {
-            final g = groups[i];
-            final isMath = g.subject == 'math';
-            final color = isMath ? context.colors.primary : Palette.success;
-            return SizedBox(
-              width: width,
-              child: SectionCard(
-                padding: const EdgeInsets.all(14),
-                onTap: () => context.push('/teacher/groups/${g.id}'),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Container(
-                          width: 36,
-                          height: 36,
-                          decoration: BoxDecoration(
-                            color: color.withValues(alpha: 0.12),
-                            borderRadius: BorderRadius.circular(11),
-                          ),
-                          child: Icon(
-                            isMath ? Icons.calculate_rounded : Icons.translate_rounded,
-                            color: color,
-                            size: 20,
-                          ),
-                        ),
-                        const Spacer(),
-                        Icon(
-                          g.joinEnabled ? Icons.lock_open_rounded : Icons.lock_rounded,
-                          size: 18,
-                          color: g.joinEnabled ? context.appColors.success : context.colors.onSurfaceVariant,
-                        ),
-                      ],
-                    ),
-                    const Spacer(),
-                    Text(g.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: context.text.titleMedium),
-                    const SizedBox(height: 2),
-                    Text(
-                      g.membersPending > 0
-                          ? "${g.membersActive} o'quvchi · +${g.membersPending} kutmoqda"
-                          : "${g.membersActive} o'quvchi",
-                      style: context.text.bodySmall?.copyWith(
-                        color: g.membersPending > 0 ? context.appColors.warning : context.colors.onSurfaceVariant,
-                        fontWeight: g.membersPending > 0 ? FontWeight.w700 : null,
-                      ),
-                    ),
-                  ],
-                ),
+          itemBuilder: (_, i) => SizedBox(width: 200, child: _GroupTile(g: groups[i])),
+        ),
+      ),
+    );
+  }
+}
+
+class _GroupTile extends StatelessWidget {
+  const _GroupTile({required this.g});
+
+  final TeacherGroup g;
+
+  @override
+  Widget build(BuildContext context) {
+    final isMath = g.subject == 'math';
+    final color = isMath ? context.colors.primary : Palette.success;
+    return SectionCard(
+      padding: const EdgeInsets.all(14),
+      onTap: () => context.push('/teacher/groups/${g.id}'),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 36,
+                height: 36,
+                decoration: BoxDecoration(color: color.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(11)),
+                child: Icon(isMath ? Icons.calculate_rounded : Icons.translate_rounded, color: color, size: 20),
               ),
-            );
-          },
-        );
-        return fits ? list : FullBleed(child: list);
-      }),
+              const Spacer(),
+              Icon(
+                g.joinEnabled ? Icons.lock_open_rounded : Icons.lock_rounded,
+                size: 18,
+                color: g.joinEnabled ? context.appColors.success : context.colors.onSurfaceVariant,
+              ),
+            ],
+          ),
+          const Spacer(),
+          Text(g.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: context.text.titleMedium),
+          const SizedBox(height: 2),
+          Text(
+            g.membersPending > 0
+                ? "${g.membersActive} o'quvchi · +${g.membersPending} kutmoqda"
+                : "${g.membersActive} o'quvchi",
+            style: context.text.bodySmall?.copyWith(
+              color: g.membersPending > 0 ? context.appColors.warning : context.colors.onSurfaceVariant,
+              fontWeight: g.membersPending > 0 ? FontWeight.w700 : null,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

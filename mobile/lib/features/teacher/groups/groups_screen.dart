@@ -6,6 +6,7 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/formatters.dart';
 import '../../../core/widgets/app_widgets.dart';
+import '../../../core/widgets/motion.dart';
 import '../../groups/data/group_models.dart';
 import '../../groups/data/groups_repository.dart';
 import 'create_group_sheet.dart';
@@ -58,7 +59,7 @@ class TeacherGroupsScreen extends ConsumerWidget {
           AsyncError(:final error) => ListView(
               children: [ErrorRetry(error: error, onRetry: refresh)],
             ),
-          _ => const Center(child: CircularProgressIndicator()),
+          _ => const SkeletonList(count: 3),
         },
       ),
     );

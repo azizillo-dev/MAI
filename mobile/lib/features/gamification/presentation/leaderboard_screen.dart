@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/app_widgets.dart';
+import '../../../core/widgets/motion.dart';
 import '../../auth/application/auth_controller.dart';
 import '../../groups/data/groups_repository.dart';
 import '../data/gamification_models.dart';
@@ -110,12 +111,15 @@ class _Board extends ConsumerWidget {
     if (b == null) {
       return async.hasError
           ? ErrorRetry(error: async.error!, onRetry: () => ref.invalidate(leaderboardProvider(query)))
-          : const Center(child: CircularProgressIndicator());
+          : const SkeletonList(count: 6);
     }
+    // Davrda hech kim ball to'plamagan bo'lsa — hamma "1-o'rin, 0 ball": bu buzilgandek ko'rinadi.
+    // Bunday holatda shohsupa o'rniga tushunarli bo'sh holat ko'rsatamiz
+    final hasPoints = b.entries.any((e) => e.points > 0);
     final top = b.entries.take(3).toList();
     final rest = b.entries.skip(3).toList();
     final me = b.me;
-    final meBelow = showMe && me != null && me.rank > 3;
+    final meBelow = hasPoints && showMe && me != null && me.rank > 3;
 
     return Stack(
       children: [
@@ -138,17 +142,22 @@ class _Board extends ConsumerWidget {
                 ),
               ),
               const SizedBox(height: 12),
-              if (b.entries.isEmpty)
-                const EmptyState(
+              if (!hasPoints)
+                EmptyState(
                   icon: Icons.emoji_events_rounded,
-                  title: "Hali ball yo'q",
-                  message: 'Vazifalar baholangach, reyting shu yerda paydo bo\'ladi.',
+                  title: b.entries.isEmpty ? "Hali ball yo'q" : "Bu davrda hali ball yo'q",
+                  message: b.entries.isEmpty
+                      ? "Vazifalar baholangach, reyting shu yerda paydo bo'ladi."
+                      : "Tanlangan davrda (${query.period.label.toLowerCase()}) hali hech kim ball to'plamagan. Boshqa davrni tanlab ko'ring.",
+                  actionLabel: b.entries.isEmpty ? null : "Davrni o'zgartirish",
+                  actionIcon: Icons.date_range_rounded,
+                  onAction: onFilter,
                 )
               else ...[
-                _Podium(top: top, meId: me?.studentId),
+                FadeSlideIn(child: _Podium(top: top, meId: me?.studentId)),
                 const SizedBox(height: 18),
-                for (final e in rest) ...[
-                  _Row(entry: e, isMe: e.studentId == me?.studentId),
+                for (final (i, e) in rest.indexed) ...[
+                  FadeSlideIn(index: i + 1, child: _Row(entry: e, isMe: e.studentId == me?.studentId)),
                   const SizedBox(height: 8),
                 ],
               ],
@@ -287,7 +296,9 @@ class _Row extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final primary = context.colors.primary;
-    final rankColor = entry.rank <= 6 ? Palette.warning : context.appColors.danger;
+    // Pastdagi o'rinlar qizil emas: reyting rag'batlantirishi kerak, uyaltirmasligi
+    final rankColor = entry.rank <= 10 ? primary : context.colors.onSurfaceVariant;
+    const pointsColor = Palette.warning;
     final row = Container(
       padding: const EdgeInsets.fromLTRB(12, 10, 14, 10),
       decoration: BoxDecoration(
@@ -315,7 +326,7 @@ class _Row extends StatelessWidget {
                   children: [
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                      decoration: BoxDecoration(color: rankColor, borderRadius: BorderRadius.circular(100)),
+                      decoration: BoxDecoration(color: pointsColor, borderRadius: BorderRadius.circular(100)),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
@@ -334,16 +345,16 @@ class _Row extends StatelessWidget {
           ),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-            decoration: BoxDecoration(color: rankColor.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(10)),
+            decoration: BoxDecoration(color: rankColor.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(10)),
             child: Text('${entry.rank}-o\'rin', style: TextStyle(color: rankColor, fontWeight: FontWeight.w800, fontSize: 13)),
           ),
         ],
       ),
     );
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onTap: () => context.push('/students/${entry.studentId}'),
-      child: row,
+    void open() => context.push('/students/${entry.studentId}');
+    return Pressable(
+      onTap: open,
+      child: GestureDetector(behavior: HitTestBehavior.opaque, onTap: open, child: row),
     );
   }
 }

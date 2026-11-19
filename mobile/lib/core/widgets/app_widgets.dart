@@ -6,6 +6,7 @@ import '../network/api_exception.dart';
 import '../network/media_cache.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_theme.dart';
+import 'motion.dart';
 
 /// Asosiy tugma: yuklanish holatida spinner ko'rsatadi va qayta bosilmaydi.
 class PrimaryButton extends StatelessWidget {
@@ -201,20 +202,60 @@ class ErrorRetry extends StatelessWidget {
   }
 }
 
-/// Oq kartochka ichidagi bo'lim
+/// Oq kartochka ichidagi bo'lim.
+///
+/// [onTap] berilsa — bosilganda biroz kichrayadi va yengil haptik beradi.
+/// [accent] — chap chetdagi ingichka rangli chiziq: holatni (muddati o'tgan, shoshilinch, baholangan)
+/// bir qarashda ajratadi.
 class SectionCard extends StatelessWidget {
-  const SectionCard({super.key, required this.child, this.padding = const EdgeInsets.all(Insets.lg), this.onTap});
+  const SectionCard({
+    super.key,
+    required this.child,
+    this.padding = const EdgeInsets.all(Insets.lg),
+    this.onTap,
+    this.accent,
+  });
 
   final Widget child;
   final EdgeInsets padding;
   final VoidCallback? onTap;
+  final Color? accent;
 
   @override
   Widget build(BuildContext context) {
-    return Card(
+    Widget body = Padding(padding: padding, child: child);
+    if (accent != null) {
+      body = Stack(
+        children: [
+          body,
+          Positioned(
+            left: 0,
+            top: 14,
+            bottom: 14,
+            child: Container(
+              width: 4,
+              decoration: BoxDecoration(
+                color: accent,
+                borderRadius: const BorderRadius.horizontal(right: Radius.circular(4)),
+              ),
+            ),
+          ),
+        ],
+      );
+    }
+    final card = Card(
       clipBehavior: Clip.antiAlias,
-      child: InkWell(onTap: onTap, child: Padding(padding: padding, child: child)),
+      child: InkWell(
+        onTap: onTap == null
+            ? null
+            : () {
+                HapticFeedback.selectionClick();
+                onTap!();
+              },
+        child: body,
+      ),
     );
+    return onTap == null ? card : Pressable(onTap: onTap, child: card);
   }
 }
 

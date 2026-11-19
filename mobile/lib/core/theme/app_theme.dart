@@ -82,14 +82,16 @@ ThemeData buildTheme(Brightness brightness, Color accent) {
     ),
     // Yumshoq kartalar: ingichka ochiq chegara + yorug' temada juda nozik soya
     cardTheme: CardThemeData(
-      color: scheme.surface,
-      elevation: isDark ? 0 : 1.5,
-      shadowColor: Colors.black.withValues(alpha: 0.06),
+      color: isDark ? const Color(0xFF111A2E) : scheme.surface,
+      // Yorug' temada keng, juda och soya (slate tusida) — karta fondan "ko'tarilib" turadi;
+      // qorong'i temada soya ko'rinmaydi, o'rniga ingichka chegara
+      elevation: isDark ? 0 : 2.5,
+      shadowColor: Palette.slate900.withValues(alpha: 0.07),
       surfaceTintColor: Colors.transparent,
       margin: EdgeInsets.zero,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(Radii.lg),
-        side: BorderSide(color: scheme.outlineVariant.withValues(alpha: isDark ? 0.8 : 0.55)),
+        side: BorderSide(color: scheme.outlineVariant.withValues(alpha: isDark ? 0.7 : 0.4)),
       ),
     ),
     filledButtonTheme: FilledButtonThemeData(

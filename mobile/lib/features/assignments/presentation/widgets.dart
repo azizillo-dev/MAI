@@ -370,6 +370,69 @@ class _ExplanationBox extends StatelessWidget {
   }
 }
 
+/// Natija rangi: a'lo — yashil, yaxshi — ko'k, qoniqarli — sariq, past — qizil
+Color scoreColor(BuildContext context, double ratio) {
+  final c = context.appColors;
+  return ratio >= 0.86
+      ? c.success
+      : ratio >= 0.71
+          ? c.info
+          : ratio >= 0.51
+              ? c.warning
+              : c.danger;
+}
+
+/// Ro'yxat kartalaridagi kichik baho doirasi
+class ScoreRing extends StatelessWidget {
+  const ScoreRing({super.key, required this.score, required this.scale, this.size = 52});
+
+  final double score;
+  final int scale;
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    final ratio = scale == 0 ? 0.0 : (score / scale).clamp(0.0, 1.0);
+    final color = scoreColor(context, ratio);
+    return Semantics(
+      label: 'Baho ${scoreText(score)} / $scale',
+      child: SizedBox.square(
+        dimension: size,
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            CircularProgressIndicator(
+              value: ratio,
+              strokeWidth: size * 0.085,
+              color: color,
+              backgroundColor: color.withValues(alpha: 0.14),
+              strokeCap: StrokeCap.round,
+            ),
+            Center(
+              child: Text.rich(
+                TextSpan(children: [
+                  TextSpan(
+                    text: scoreText(score),
+                    style: TextStyle(fontSize: size * 0.33, fontWeight: FontWeight.w800, color: color, height: 1),
+                  ),
+                  TextSpan(
+                    text: '/$scale',
+                    style: TextStyle(
+                      fontSize: size * 0.19,
+                      fontWeight: FontWeight.w600,
+                      color: context.colors.onSurfaceVariant,
+                    ),
+                  ),
+                ]),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 /// Katta baho doirasi (natija ekranlari uchun)
 class ScoreBadge extends StatelessWidget {
   const ScoreBadge({super.key, required this.score, required this.scale, this.size = 96});
@@ -381,14 +444,7 @@ class ScoreBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final ratio = scale == 0 ? 0.0 : score / scale;
-    final c = context.appColors;
-    final color = ratio >= 0.86
-        ? c.success
-        : ratio >= 0.71
-            ? c.info
-            : ratio >= 0.51
-                ? c.warning
-                : c.danger;
+    final color = scoreColor(context, ratio);
     return TweenAnimationBuilder<double>(
       tween: Tween(begin: 0, end: ratio.clamp(0.0, 1.0)),
       duration: const Duration(milliseconds: 700),

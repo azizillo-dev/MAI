@@ -198,8 +198,11 @@ class WeeklyGoalCard extends StatelessWidget {
                   ),
                 ),
                 Center(
-                  child: Text(week.isEmpty ? '—' : '$done/${week.length}',
-                      style: context.text.titleMedium?.copyWith(fontWeight: FontWeight.w800)),
+                  // Bu haftaga vazifa yo'q — "—" buzilgandek ko'rinadi: dam olish belgisi
+                  child: week.isEmpty
+                      ? Icon(Icons.wb_sunny_rounded, color: context.appColors.warning, size: 28)
+                      : Text('$done/${week.length}',
+                          style: context.text.titleMedium?.copyWith(fontWeight: FontWeight.w800)),
                 ),
               ],
             ),
@@ -213,7 +216,7 @@ class WeeklyGoalCard extends StatelessWidget {
                 const SizedBox(height: 2),
                 Text(
                   week.isEmpty
-                      ? "Bu haftaga vazifa berilmagan"
+                      ? "Bu hafta vazifa yo'q — dam oling yoki eskilarini takrorlang"
                       : ratio >= 1
                       ? "Barakalla! Bu haftaning hammasi topshirildi 🎉"
                       : "Bu haftaning ${week.length - done} ta vazifasi qoldi",

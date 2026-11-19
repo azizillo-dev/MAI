@@ -93,8 +93,8 @@ class _EmailScreenState extends ConsumerState<EmailScreen> {
     if (!_valid) {
       // Tugma o'chib turmaydi — nima noto'g'riligini aniq aytamiz
       setState(() => _error = _email.contains('@')
-          ? "Email to'liq emas. Namuna: ism@gmail.com"
-          : "Email'da «@» va pochta nomi bo'lishi kerak. Namuna: ism@gmail.com");
+          ? "Email to'liq yozilmagan"
+          : "Email noto'g'ri kiritilgan");
       return;
     }
     setState(() {
@@ -200,9 +200,7 @@ class _EmailScreenState extends ConsumerState<EmailScreen> {
                 onChanged: (_) => setState(() => _error = null),
                 onSubmitted: (_) => _submit(),
                 decoration: InputDecoration(
-                  labelText: 'Email',
-                  hintText: 'ism@gmail.com',
-                  floatingLabelBehavior: FloatingLabelBehavior.auto,
+                  hintText: 'Emailni kiriting',
                   errorText: _error,
                   suffixIcon: _controller.text.isEmpty
                       ? null

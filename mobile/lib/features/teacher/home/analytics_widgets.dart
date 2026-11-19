@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/theme/app_colors.dart';
+import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/formatters.dart';
 import '../../../core/widgets/app_widgets.dart';
 import '../../../core/widgets/math_text.dart';
@@ -159,9 +160,25 @@ class _GroupCard extends StatelessWidget {
             width: double.infinity,
             child: points.length >= 2
                 ? TrendChart(values: g.weekly)
-                : Center(
-                    child: Text("Trend uchun kamida 2 haftalik ma'lumot kerak",
-                        style: context.text.bodySmall?.copyWith(color: context.appColors.muted)),
+                : DecoratedBox(
+                    decoration: BoxDecoration(
+                      color: context.colors.surfaceContainerLow,
+                      borderRadius: BorderRadius.circular(Radii.md),
+                      border: Border.all(color: context.colors.outlineVariant.withValues(alpha: 0.6)),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.show_chart_rounded, size: 22, color: context.appColors.muted),
+                        const SizedBox(width: 8),
+                        Flexible(
+                          child: Text(
+                            "Trend 2-haftadan keyin ko'rinadi",
+                            style: context.text.bodySmall?.copyWith(color: context.appColors.muted),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
           ),
           const Spacer(),

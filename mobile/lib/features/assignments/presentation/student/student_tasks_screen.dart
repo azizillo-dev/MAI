@@ -6,6 +6,7 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/utils/formatters.dart';
 import '../../../../core/widgets/app_widgets.dart';
+import '../../../../core/widgets/motion.dart';
 import '../../data/assignment_models.dart';
 import '../../data/assignments_repository.dart';
 import '../widgets.dart';
@@ -31,7 +32,7 @@ class StudentTasksScreen extends ConsumerWidget {
         child: list == null
             ? (async.hasError
                 ? ListView(children: [ErrorRetry(error: async.error!, onRetry: refresh)])
-                : const Center(child: CircularProgressIndicator()))
+                : const SkeletonList())
             : list.isEmpty
                 ? ListView(
                     children: const [
@@ -56,35 +57,54 @@ class _Sections extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final todo = list.where((a) => a.submission == null).toList()..sort((a, b) => a.dueAt.compareTo(b.dueAt));
-    final checking = list
-        .where((a) => a.submission != null && !a.submission!.isFinal)
-        .toList();
+    // Topshirsa bo'ladiganlar — eng yaqin muddat tepada
+    final todo = list.where((a) => a.canSubmit).toList()..sort((a, b) => a.dueAt.compareTo(b.dueAt));
+    final checking = list.where((a) => a.submission != null && !a.submission!.isFinal).toList();
     final done = list.where((a) => a.submission?.isFinal ?? false).toList()
       ..sort((a, b) => b.submission!.submittedAt.compareTo(a.submission!.submittedAt));
+    // Muddati o'tib, topshirib bo'lmaydiganlar "Topshirish kerak" sanog'iga kirmaydi — pastda, alohida
+    final missed = list.where((a) => a.submission == null && !a.canSubmit).toList()
+      ..sort((a, b) => b.dueAt.compareTo(a.dueAt));
+
+    var index = 0;
+    List<Widget> cards(List<StudentAssignment> items) => [
+          for (final a in items) ...[
+            FadeSlideIn(index: index++, child: StudentTaskCard(a: a)),
+            const SizedBox(height: 10),
+          ],
+        ];
 
     return ListView(
       padding: Insets.screen.copyWith(top: 4, bottom: 24),
       children: [
         if (todo.isNotEmpty) ...[
           SectionTitle('Topshirish kerak', trailing: StatusChip(label: '${todo.length}', tone: StatusTone.warning)),
-          for (final a in todo) ...[StudentTaskCard(a: a), const SizedBox(height: 10)],
+          ...cards(todo),
           const SizedBox(height: 10),
         ],
         if (checking.isNotEmpty) ...[
           const SectionTitle('Tekshirilmoqda'),
-          for (final a in checking) ...[StudentTaskCard(a: a), const SizedBox(height: 10)],
+          ...cards(checking),
           const SizedBox(height: 10),
         ],
         if (done.isNotEmpty) ...[
           const SectionTitle('Baholangan'),
-          for (final a in done) ...[StudentTaskCard(a: a), const SizedBox(height: 10)],
+          ...cards(done),
+          const SizedBox(height: 10),
+        ],
+        if (missed.isNotEmpty) ...[
+          const SectionTitle("Muddati o'tgan"),
+          ...cards(missed),
         ],
       ],
     );
   }
 }
 
+/// Vazifa kartasi. Holat bir qarashda ajraladi:
+/// * chap chiziq — shoshilinch (sariq), muddati o'tgan (qizil), baholangan (yashil);
+/// * o'ngda — baholangan bo'lsa baho doirasi, aks holda strelka;
+/// * muddati o'tgan va topshirilmagan karta xira ko'rinadi.
 class StudentTaskCard extends StatelessWidget {
   const StudentTaskCard({super.key, required this.a});
 
@@ -93,50 +113,105 @@ class StudentTaskCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final s = a.submission;
-    final Widget status = switch (s) {
-      null => a.canSubmit
-          ? DueChip(due: a.dueAt)
-          : const StatusChip(label: "Muddati o'tdi", tone: StatusTone.danger, icon: Icons.alarm_off_rounded),
-      Submission(isFinal: true) => StatusChip(
-          label: '${scoreText(s.finalScore ?? 0)} / ${s.gradingScale}',
-          tone: StatusTone.success,
-          icon: Icons.star_rounded,
-        ),
-      _ => const StatusChip(label: 'Tekshirilmoqda', tone: StatusTone.info, icon: Icons.hourglass_top_rounded),
-    };
+    final c = context.appColors;
+    final missed = s == null && !a.canSubmit;
+    final urgent = s == null && a.canSubmit && !a.isOverdue && a.dueAt.difference(DateTime.now()).inHours < 24;
+    final graded = s?.isFinal ?? false;
+
+    final Widget status;
+    if (s == null) {
+      status = missed
+          ? const StatusChip(label: 'Topshirilmagan', tone: StatusTone.danger, icon: Icons.alarm_off_rounded)
+          : a.isOverdue
+              ? const StatusChip(label: 'Kechikib topshirish mumkin', tone: StatusTone.warning, icon: Icons.history_rounded)
+              : DueChip(due: a.dueAt);
+    } else if (s.isFinal) {
+      status = StatusChip(
+        label: s.teacherScore != null ? 'Ustoz baholadi' : 'AI tekshirdi',
+        tone: StatusTone.success,
+        icon: Icons.check_circle_rounded,
+      );
+    } else {
+      status = const StatusChip(label: 'Tekshirilmoqda', tone: StatusTone.info, icon: Icons.hourglass_top_rounded);
+    }
+    // Baholanganda doira o'zi yetarli — chiziq faqat e'tibor kerak bo'lganda
+    final late = s == null && a.canSubmit && a.isOverdue;
+    final accent = missed
+        ? c.danger
+        : (urgent || late)
+            ? c.warning
+            : null;
+
     final isMath = a.subject == 'math';
-    final color = isMath ? context.colors.primary : Palette.success;
-    return SectionCard(
+    final tint = missed ? c.muted : (isMath ? context.colors.primary : Palette.success);
+    final muted = context.colors.onSurfaceVariant;
+
+    final card = SectionCard(
+      accent: accent,
+      padding: const EdgeInsets.fromLTRB(16, 14, 12, 14),
       onTap: () => context.push('/student/tasks/${a.id}'),
       child: Row(
         children: [
           Container(
-            width: 46,
-            height: 46,
-            decoration: BoxDecoration(color: color.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(14)),
-            child: Icon(isMath ? Icons.calculate_rounded : Icons.translate_rounded, color: color),
+            width: 48,
+            height: 48,
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [tint.withValues(alpha: 0.18), tint.withValues(alpha: 0.08)],
+              ),
+              borderRadius: BorderRadius.circular(15),
+            ),
+            child: Icon(isMath ? Icons.functions_rounded : Icons.translate_rounded, color: tint, size: 24),
           ),
           const SizedBox(width: 14),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(a.title, style: context.text.titleMedium, maxLines: 1, overflow: TextOverflow.ellipsis),
-                const SizedBox(height: 2),
                 Text(
-                  '${a.groupName} · ${formatDueUz(a.dueAt)}',
-                  maxLines: 1,
+                  a.title,
+                  style: context.text.titleMedium?.copyWith(height: 1.25),
+                  maxLines: 2,
                   overflow: TextOverflow.ellipsis,
-                  style: context.text.bodySmall?.copyWith(color: context.colors.onSurfaceVariant),
                 ),
-                const SizedBox(height: 8),
-                status,
+                const SizedBox(height: 3),
+                Row(
+                  children: [
+                    Icon(Icons.groups_2_outlined, size: 14, color: muted),
+                    const SizedBox(width: 4),
+                    Flexible(
+                      child: Text(
+                        a.groupName,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: context.text.bodySmall?.copyWith(color: muted),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 6,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    status,
+                    Text(formatDueUz(a.dueAt), style: context.text.bodySmall?.copyWith(color: muted)),
+                  ],
+                ),
               ],
             ),
           ),
-          Icon(Icons.chevron_right_rounded, color: context.colors.onSurfaceVariant),
+          const SizedBox(width: 8),
+          if (graded)
+            ScoreRing(score: s!.finalScore ?? 0, scale: s.scaleMax)
+          else
+            Icon(Icons.chevron_right_rounded, color: muted),
         ],
       ),
     );
+    return missed ? Opacity(opacity: 0.72, child: card) : card;
   }
 }
