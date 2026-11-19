@@ -41,6 +41,26 @@ class AuthRepository {
         return OtpNeedsRegistration(d['registration_token'] as String);
       });
 
+  /// Google ID token bilan kirish (email Google'da tasdiqlangan — kod so'ralmaydi)
+  Future<OtpResult> signInWithGoogle(String idToken) => guard(() async {
+        final r = await _dio.post<Map<String, dynamic>>(
+          '/auth/google',
+          data: {'id_token': idToken, 'device_name': deviceName},
+        );
+        final d = r.data!;
+        if (d['status'] == 'logged_in') {
+          return OtpLoggedIn(
+            Tokens.fromJson(d['tokens'] as Map<String, dynamic>),
+            Me.fromJson(d['me'] as Map<String, dynamic>),
+          );
+        }
+        return OtpNeedsRegistration(
+          d['registration_token'] as String,
+          firstName: d['first_name'] as String?,
+          lastName: d['last_name'] as String?,
+        );
+      });
+
   Future<(Tokens, Me)> registerStudent({
     required String registrationToken,
     required String firstName,

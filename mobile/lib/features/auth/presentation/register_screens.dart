@@ -158,6 +158,14 @@ class _StudentRegisterScreenState extends ConsumerState<StudentRegisterScreen> {
   Map<String, String> _serverErrors = const {};
 
   @override
+  void initState() {
+    super.initState();
+    final flow = ref.read(signInFlowProvider);
+    _first.text = flow.firstNameHint ?? '';
+    _last.text = flow.lastNameHint ?? '';
+  }
+
+  @override
   void dispose() {
     _first.dispose();
     _last.dispose();
@@ -400,6 +408,14 @@ class _TeacherRegisterScreenState extends ConsumerState<TeacherRegisterScreen> {
   final _middle = TextEditingController();
   bool _loading = false;
   Map<String, String> _serverErrors = const {};
+
+  @override
+  void initState() {
+    super.initState();
+    final flow = ref.read(signInFlowProvider);
+    _first.text = flow.firstNameHint ?? '';
+    _last.text = flow.lastNameHint ?? '';
+  }
 
   @override
   void dispose() {

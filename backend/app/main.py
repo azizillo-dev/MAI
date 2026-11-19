@@ -7,7 +7,7 @@ from fastapi import FastAPI
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 
-from app.api.routes import admin, assignments, auth, extras, gamification, groups, me, teachers
+from app.api.routes import admin, assignments, auth, chat, extras, gamification, groups, me, teachers
 from app.core.config import get_settings
 from app.core.errors import register_error_handlers
 from app.db.session import get_sessionmaker
@@ -41,7 +41,7 @@ def create_app() -> FastAPI:
         redoc_url=None,
     )
     register_error_handlers(app)
-    for module in (auth, me, teachers, groups, gamification, extras, admin):
+    for module in (auth, me, teachers, groups, gamification, extras, chat, admin):
         app.include_router(module.router, prefix="/api/v1")
     # /api/v1/... va /media/... yo'llari routerning o'zida
     app.include_router(assignments.router)

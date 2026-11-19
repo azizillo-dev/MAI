@@ -10,6 +10,7 @@ from app.models.assignment import (
     SubmissionStatus,
 )
 from app.models.base import Base
+from app.models.chat import ChatMessage, Conversation
 from app.models.extras import GiftJeton, JetonLedger, JetonOrder, SiteSetting, SupportMessage
 from app.models.gamification import BadgeAward, XpEvent
 from app.models.billing import Plan, PlanRequest, PromoCode, Subscription
@@ -22,6 +23,8 @@ __all__ = [
     "AssignmentImage",
     "AssignmentStatus",
     "Book",
+    "ChatMessage",
+    "Conversation",
     "SourceType",
     "Submission",
     "SubmissionFile",

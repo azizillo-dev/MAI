@@ -76,6 +76,9 @@ class Settings(BaseSettings):
     gemini_fallback_models: str = "gemini-3.5-flash,gemini-3.8-flash,gemini-flash-latest,gemini-3.5-flash-lite"
     # Shu ishonchdan past natija o'quvchiga chiqmaydi, avval ustoz ko'radi
     ai_min_confidence: float = 0.7
+    # Google orqali kirish: Google Cloud'dagi OAuth client ID'lar (vergul bilan; odatda "Web" client ID —
+    # ilova shu ID bilan token oladi). Bo'sh bo'lsa, tugma "hali sozlanmagan" deydi
+    google_client_ids: str = ""
     # Tekshiruvda AI fikrlash (thinking) chegarasi. Xarajatning asosiy qismi shu: misollarning to'g'ri
     # javobi ma'lum bo'lsa, AI ularni qaytadan yechmaydi — 4k yetadi. Zich daftarlarda baho sifati
     # tushsa (ai_runs, ustoz tuzatishlari), oshiring

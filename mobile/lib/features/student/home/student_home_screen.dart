@@ -8,6 +8,7 @@ import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/formatters.dart';
 import '../../../core/widgets/app_widgets.dart';
 import '../../../core/widgets/motion.dart';
+import '../../chat/chat_list_screen.dart';
 import '../../assignments/data/assignments_repository.dart';
 import '../../assignments/presentation/student/student_tasks_screen.dart';
 import '../../auth/application/auth_controller.dart';
@@ -41,6 +42,7 @@ class StudentHomeScreen extends ConsumerWidget {
             SliverAppBar(
               pinned: true,
               toolbarHeight: 72,
+              actions: const [ChatButton(), SizedBox(width: 16)],
               title: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [

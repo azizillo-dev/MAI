@@ -11,6 +11,7 @@ import '../../../core/utils/formatters.dart';
 import '../../../core/widgets/app_widgets.dart';
 import '../../../core/widgets/motion.dart';
 import '../../auth/application/auth_controller.dart';
+import '../../chat/chat_list_screen.dart';
 import 'dashboard_models.dart';
 
 /// Yangi ("bento") ustoz dashboard'ining bloklari.
@@ -69,6 +70,8 @@ class BentoHeader extends ConsumerWidget {
               ],
             ),
           ),
+          const ChatButton(),
+          const SizedBox(width: 10),
           Pressable(
             onTap: () => context.go('/teacher/profile'),
             child: GestureDetector(

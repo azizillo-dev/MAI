@@ -7,8 +7,8 @@ class SplashScreen extends StatelessWidget {
   const SplashScreen({super.key});
 
   @override
-  Widget build(BuildContext context) => const Scaffold(
-        backgroundColor: BrandColors.night,
-        body: Center(child: AppLogo(size: 150, glowStrength: 0)),
+  Widget build(BuildContext context) => Scaffold(
+        backgroundColor: BrandColors.splash(context),
+        body: const Center(child: AppLogo(size: 150, glowStrength: 0)),
       );
 }

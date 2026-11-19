@@ -98,6 +98,8 @@ class Membership {
     required this.gradingScale,
     required this.teacherName,
     required this.status,
+    this.teacherId = '',
+    this.teacherAvatarUrl,
   });
 
   final String groupId;
@@ -106,6 +108,8 @@ class Membership {
   final String gradingScale;
   final String teacherName;
   final String status;
+  final String teacherId;
+  final String? teacherAvatarUrl;
 
   bool get isPending => status == 'pending';
 
@@ -115,6 +119,8 @@ class Membership {
         subject: j['subject'] as String,
         gradingScale: j['grading_scale'] as String,
         teacherName: (j['teacher'] as Map)['full_name'] as String,
+        teacherId: (j['teacher'] as Map)['id'] as String? ?? '',
+        teacherAvatarUrl: (j['teacher'] as Map)['avatar_url'] as String?,
         status: j['status'] as String,
       );
 }

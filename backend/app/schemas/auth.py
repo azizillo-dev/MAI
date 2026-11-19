@@ -78,6 +78,14 @@ class OtpVerifyOut(Schema):
     tokens: TokensOut | None = None
     me: MeOut | None = None
     registration_token: str | None = None
+    # Google'dan kelgan ism — ro'yxatdan o'tish formasini oldindan to'ldirish uchun
+    first_name: str | None = None
+    last_name: str | None = None
+
+
+class GoogleIn(Schema):
+    id_token: str = Field(min_length=20, max_length=4096)
+    device_name: str | None = Field(default=None, max_length=128)
 
 
 class _RegisterBase(Schema):
