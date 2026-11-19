@@ -192,6 +192,7 @@ class AnthropicProvider:
 
 
 THINKING_BUDGET = 24576
+EXPLAIN_THINKING = 512
 
 
 def _budget(thinking: bool | int) -> int:
@@ -354,8 +355,9 @@ class GeminiProvider:
         # Matnli kichik so'rov: arzon model, fikrlashsiz. Band bo'lsa — asosiy model va zaxiralar
         explain_model = get_settings().gemini_explain_model
         models = [explain_model, *(m for m in [self.model, *self.fallback_models] if m != explain_model)]
+        # Flash-Lite thinking_budget=0 ni rad etadi (400): kichik chegara beramiz, oddiy so'rovda u fikrlamaydi
         return await self._generate(
-            system=prompts.EXPLAIN_SYSTEM, parts=[request], schema=Explanation, thinking=False, models=models
+            system=prompts.EXPLAIN_SYSTEM, parts=[request], schema=Explanation, thinking=EXPLAIN_THINKING, models=models
         )
 
 
