@@ -1,0 +1,11 @@
+{
+  "name": "Mentor AI",
+  "short_name": "Mentor AI",
+  "icons": [
+    {"src": "/assets/img/icon-192.png", "sizes": "192x192", "type": "image/png"},
+    {"src": "/assets/img/icon-512.png", "sizes": "512x512", "type": "image/png"}
+  ],
+  "theme_color": "#07071a",
+  "background_color": "#07071a",
+  "display": "standalone"
+}

@@ -551,14 +551,17 @@
       countIO.observe($('#metricLive [data-count]'));
     }
   }).catch(() => { /* zaxira qiymatlar ko'rsatilgan */ });
-  // ---------- Logo videosi: ko'rinishga yaqinlashganda yuklanadi, ko'rinmasa to'xtaydi
+  // ---------- Hero'dagi logo videosi: avval poster (11 KB) ko'rinadi, video sahifa to'liq
+  // yuklangandan keyin olinadi (birinchi ekran sekinlashmasin); ko'rinmay qolsa to'xtaydi
   (() => {
-    const box = document.getElementById('ctaVideo');
+    const box = document.getElementById('heroVideo');
     const video = box && box.querySelector('video');
     if (!video) return;
     const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    const sound = document.getElementById('ctaSound');
+    const sound = document.getElementById('heroSound');
+    let visible = true;
     const load = () => { if (!video.src) { video.src = video.dataset.src; video.load(); } };
+    const play = () => { if (visible) video.play().catch(() => {}); };
     sound.addEventListener('click', () => {
       load();
       video.muted = !video.muted;
@@ -566,11 +569,18 @@
       sound.setAttribute('aria-label', video.muted ? 'Ovozni yoqish' : "Ovozni o'chirish");
       if (!video.muted) { video.currentTime = 0; video.play().catch(() => {}); }
     });
-    if (reduce || !('IntersectionObserver' in window)) return; // poster qoladi, ovoz tugmasi bilan o'ynatsa bo'ladi
-    new IntersectionObserver((entries) => {
-      entries.forEach((en) => {
-        if (en.isIntersecting) { load(); video.play().catch(() => {}); } else if (video.src) video.pause();
-      });
-    }, { rootMargin: '200px 0px' }).observe(video);
+    if (reduce) return; // poster qoladi; ovoz tugmasi bilan o'ynatsa bo'ladi
+    const start = () => { load(); play(); };
+    if (document.readyState === 'complete') setTimeout(start, 300);
+    else window.addEventListener('load', () => setTimeout(start, 300), { once: true });
+    if ('IntersectionObserver' in window) {
+      new IntersectionObserver((entries) => {
+        entries.forEach((en) => {
+          visible = en.isIntersecting;
+          if (!video.src) return;
+          if (visible) video.play().catch(() => {}); else video.pause();
+        });
+      }).observe(video);
+    }
   })();
 })();
