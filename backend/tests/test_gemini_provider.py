@@ -116,3 +116,13 @@ async def test_pdf_is_sent_as_document_part(gemini):
     part = calls[0]["contents"][0]
     assert part.inline_data.mime_type == "application/pdf"
     assert "56-60" in calls[0]["contents"][1]
+
+
+def test_broken_latex_from_json_is_repaired():
+    from app.ai.provider import _repair_latex
+    from app.ai.schemas import Explanation
+
+    broken = Explanation(text="Javob $\x0crac{5}{6}$, $2 \times 3$, $x \neq 0$, $\x08eta$.\nYangi qator saqlanadi")
+    fixed = _repair_latex(broken).text
+    assert fixed == r"Javob $\frac{5}{6}$, $2 \times 3$, $x \neq 0$, $\beta$." + "\nYangi qator saqlanadi"
+    assert _repair_latex("Oddiy matn\tjadval") == "Oddiy matn\tjadval"  # LaTeX bo'lmasa tegilmaydi

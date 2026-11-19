@@ -9,6 +9,7 @@ Ikkalasi bir xil interfeysga ega, shuning uchun qolgan kod qaysi biri ishlayotga
 
 import asyncio
 import base64
+import re
 import time
 from dataclasses import dataclass, field
 from typing import Protocol
@@ -192,6 +193,31 @@ class AnthropicProvider:
 
 
 THINKING_BUDGET = 24576
+
+# Model LaTeX'ni JSON ichida bitta "\" bilan yozib yuborsa, "\frac" -> form feed + "rac",
+# "\times" -> tab + "imes" bo'lib qoladi. Boshqaruv belgilarini buyruqqa qaytaramiz.
+_LATEX_CTRL = {"\f": "\\f", "\b": "\\b", "\t": "\\t", "\r": "\\r", "\v": "\\v", "\a": "\\a"}
+_LATEX_NL = re.compile(r"\n(?=(?:eq|eg|abla|ot|ewline|leq|geq|mid|parallel|subseteq|exists)[^a-z]?)")
+
+
+def _repair_latex_text(text: str) -> str:
+    if "$" not in text and "\\" not in text:
+        return text
+    for ch, cmd in _LATEX_CTRL.items():
+        if ch in text:
+            text = re.sub(re.escape(ch) + r"(?=[a-zA-Z])", lambda _m, c=cmd: c, text)
+    return _LATEX_NL.sub(lambda _m: "\\n", text)
+
+
+def _repair_latex(value):
+    """AI javobidagi barcha matnlarda buzilgan LaTeX buyruqlarini tiklaydi."""
+    if isinstance(value, str):
+        return _repair_latex_text(value)
+    if isinstance(value, list):
+        return [_repair_latex(v) for v in value]
+    if hasattr(value, "model_fields"):
+        return value.model_copy(update={k: _repair_latex(getattr(value, k)) for k in type(value).model_fields})
+    return value
 EXPLAIN_THINKING = 512
 
 
@@ -257,7 +283,7 @@ class GeminiProvider:
         parsed = response.parsed
         if not isinstance(parsed, schema):
             raise AiError("AI javobini o'qib bo'lmadi")
-        return parsed, usage
+        return _repair_latex(parsed), usage
 
     async def _call_with_retry(self, parts: list, config, models: list[str] | None = None):
         """Band (503/500) yoki vaqtinchalik limit (429) bo'lsa kutib qayta urinadi, keyin zaxira modelga o'tadi.
