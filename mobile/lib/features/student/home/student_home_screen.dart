@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -8,10 +9,10 @@ import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/formatters.dart';
 import '../../../core/widgets/app_widgets.dart';
 import '../../../core/widgets/motion.dart';
-import '../../chat/chat_list_screen.dart';
+import '../../teacher/home/teacher_home_bento.dart';
+import 'student_bento.dart';
 import '../../assignments/data/assignments_repository.dart';
 import '../../assignments/presentation/student/student_tasks_screen.dart';
-import '../../auth/application/auth_controller.dart';
 import '../../gamification/data/gamification_models.dart';
 import '../../groups/data/group_models.dart';
 import '../../groups/data/groups_repository.dart';
@@ -22,7 +23,6 @@ class StudentHomeScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final me = ref.watch(currentUserProvider);
     final memberships = ref.watch(membershipsProvider);
     final list = memberships.value;
 
@@ -33,76 +33,79 @@ class StudentHomeScreen extends ConsumerWidget {
       await ref.read(membershipsProvider.future);
     }
 
-    return Scaffold(
-      body: RefreshIndicator(
-        onRefresh: refresh,
-        child: CustomScrollView(
-          physics: const AlwaysScrollableScrollPhysics(),
-          slivers: [
-            SliverAppBar(
-              pinned: true,
-              toolbarHeight: 72,
-              actions: const [ChatButton(), SizedBox(width: 16)],
-              title: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Salom 👋',
-                    style: context.text.bodyMedium?.copyWith(color: context.colors.onSurfaceVariant),
-                  ),
-                  Text(me?.firstName ?? '', style: context.text.headlineSmall),
-                ],
-              ),
-            ),
-            if (list == null)
-              SliverFillRemaining(
-                hasScrollBody: false,
-                child: memberships.hasError
-                    ? ErrorRetry(error: memberships.error!, onRetry: refresh)
-                    : const SkeletonList(count: 4),
-              )
-            else if (list.isEmpty)
-              SliverFillRemaining(
-                hasScrollBody: false,
-                child: Center(
-                  child: EmptyState(
-                    icon: Icons.group_add_rounded,
-                    title: "Hali guruhingiz yo'q",
-                    message: "Ustozingizdan guruh kodi va parolini so'rang yoki QR kodni skanerlang.",
-                    actionLabel: "Guruhga qo'shilish",
-                    actionIcon: Icons.add_rounded,
-                    onAction: () => context.push('/student/join'),
-                  ),
-                ),
-              )
-            else
-              SliverPadding(
-                padding: Insets.screen.copyWith(bottom: 24),
-                sliver: SliverList.list(
-                  children: [
-                    StudentHeroCard(p: ref.watch(studentProgressProvider).value),
-                    GiftBanner(p: ref.watch(studentProgressProvider).value),
-                    const SizedBox(height: 16),
-                    WeeklyGoalCard(list: ref.watch(studentAssignmentsProvider).value ?? const []),
-                    const SizedBox(height: 16),
-                    ResultsTrendCard(list: ref.watch(studentAssignmentsProvider).value ?? const []),
-                    const SizedBox(height: 20),
-                    ..._todo(context, ref),
-                    Text('Guruhlarim', style: context.text.titleLarge),
-                    const SizedBox(height: 12),
-                    for (final m in list) ...[
-                      _MembershipCard(membership: m),
-                      const SizedBox(height: 10),
-                    ],
-                    const SizedBox(height: 6),
-                    OutlinedButton.icon(
-                      onPressed: () => context.push('/student/join'),
-                      icon: const Icon(Icons.add_rounded),
-                      label: const Text("Yana guruhga qo'shilish"),
-                    ),
+    final dark = Theme.of(context).brightness == Brightness.dark;
+    final topInset = MediaQuery.paddingOf(context).top;
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: dark ? SystemUiOverlayStyle.light : SystemUiOverlayStyle.dark,
+      child: Scaffold(
+        body: Stack(
+          children: [
+            const Positioned(top: 0, left: 0, right: 0, child: BentoBackdrop()),
+            StatusBarScrim(
+              child: RefreshIndicator(
+                onRefresh: refresh,
+                edgeOffset: topInset,
+                child: CustomScrollView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  slivers: [
+                    const SliverToBoxAdapter(child: BentoHeader(profilePath: '/student/profile')),
+                    const SliverToBoxAdapter(child: SizedBox(height: 20)),
+                    if (list == null)
+                      SliverFillRemaining(
+                        hasScrollBody: false,
+                        child: memberships.hasError
+                            ? ErrorRetry(error: memberships.error!, onRetry: refresh)
+                            : const SkeletonList(count: 4),
+                      )
+                    else if (list.isEmpty)
+                      SliverFillRemaining(
+                        hasScrollBody: false,
+                        child: Center(
+                          child: EmptyState(
+                            icon: Icons.group_add_rounded,
+                            title: "Hali guruhingiz yo'q",
+                            message: "Ustozingizdan guruh kodi va parolini so'rang yoki QR kodni skanerlang.",
+                            actionLabel: "Guruhga qo'shilish",
+                            actionIcon: Icons.add_rounded,
+                            onAction: () => context.push('/student/join'),
+                          ),
+                        ),
+                      )
+                    else
+                      SliverPadding(
+                        padding: Insets.screen.copyWith(bottom: 24),
+                        sliver: SliverList.list(
+                          children: [
+                            StudentHeroCard(p: ref.watch(studentProgressProvider).value),
+                            GiftBanner(p: ref.watch(studentProgressProvider).value),
+                            const SizedBox(height: 16),
+                            FadeSlideIn(
+                              index: 1,
+                              child: StudentBento(
+                                list: ref.watch(studentAssignmentsProvider).value ?? const [],
+                                p: ref.watch(studentProgressProvider).value,
+                              ),
+                            ),
+                            const SizedBox(height: 16),
+                            ResultsTrendCard(list: ref.watch(studentAssignmentsProvider).value ?? const []),
+                            const SizedBox(height: 20),
+                            ..._todo(context, ref),
+                            Text('Guruhlarim', style: context.text.titleLarge),
+                            const SizedBox(height: 12),
+                            for (final m in list) ...[_MembershipCard(membership: m), const SizedBox(height: 10)],
+                            const SizedBox(height: 6),
+                            OutlinedButton.icon(
+                              onPressed: () => context.push('/student/join'),
+                              icon: const Icon(Icons.add_rounded),
+                              label: const Text("Yana guruhga qo'shilish"),
+                            ),
+                          ],
+                        ),
+                      ),
                   ],
                 ),
               ),
+            ),
           ],
         ),
       ),
@@ -120,7 +123,8 @@ List<Widget> _todo(BuildContext context, WidgetRef ref) {
     Row(
       children: [
         Expanded(child: Text('Topshirish kerak', style: context.text.titleLarge)),
-        if (todo.length > 3) TextButton(onPressed: () => context.go('/student/tasks'), child: Text('Hammasi (${todo.length})')),
+        if (todo.length > 3)
+          TextButton(onPressed: () => context.go('/student/tasks'), child: Text('Hammasi (${todo.length})')),
       ],
     ),
     const SizedBox(height: 10),
@@ -165,7 +169,10 @@ class _MembershipCard extends ConsumerWidget {
               Container(
                 width: 50,
                 height: 50,
-                decoration: BoxDecoration(color: color.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(15)),
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(15),
+                ),
                 child: Icon(isMath ? Icons.calculate_rounded : Icons.translate_rounded, color: color),
               ),
               const SizedBox(width: 14),
