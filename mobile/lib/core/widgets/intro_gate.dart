@@ -77,9 +77,11 @@ class _IntroGateState extends State<IntroGate> with TickerProviderStateMixin {
         FadeTransition(
           opacity: ReverseAnimation(_fade),
           child: AnnotatedRegion<SystemUiOverlayStyle>(
-            value: SystemUiOverlayStyle.light,
+            value: MediaQuery.platformBrightnessOf(context) == Brightness.dark
+                ? SystemUiOverlayStyle.light
+                : SystemUiOverlayStyle.dark,
             child: ColoredBox(
-              color: BrandColors.night,
+              color: BrandColors.splash(context),
               child: Center(
                 child: AnimatedBuilder(
                   animation: _pulse,

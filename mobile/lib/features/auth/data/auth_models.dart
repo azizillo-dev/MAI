@@ -148,8 +148,12 @@ class OtpLoggedIn extends OtpResult {
 }
 
 class OtpNeedsRegistration extends OtpResult {
-  const OtpNeedsRegistration(this.registrationToken);
+  const OtpNeedsRegistration(this.registrationToken, {this.firstName, this.lastName});
   final String registrationToken;
+
+  /// Google'dan kelgan ism — ro'yxatdan o'tish formasini oldindan to'ldirish uchun
+  final String? firstName;
+  final String? lastName;
 }
 
 String formatPhone(String phone) {

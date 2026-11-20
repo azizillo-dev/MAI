@@ -23,6 +23,7 @@ from app.schemas.auth import (
     AuthOut,
     EmailRequestIn,
     EmailVerifyIn,
+    GoogleIn,
     OtpRequestIn,
     OtpRequestOut,
     OtpVerifyIn,
@@ -33,7 +34,7 @@ from app.schemas.auth import (
     TokensOut,
 )
 from app.schemas.common import Message
-from app.services import otp, plans, sessions
+from app.services import google_auth, otp, plans, sessions
 from app.services.mailer import get_mailer, otp_email
 from app.services.sms import SmsSender, get_sms_sender, otp_message
 
@@ -96,6 +97,18 @@ async def verify_email_code(body: EmailVerifyIn, request: Request, db: DB) -> Ot
     await otp.verify_otp(db, email, body.code)
     user = await db.scalar(select(User).where(User.email == email))
     return await _login_or_register(db, request, user, body.device_name, email=email)
+
+
+@router.post("/google", response_model=OtpVerifyOut)
+async def google_sign_in(body: GoogleIn, request: Request, db: DB) -> OtpVerifyOut:
+    """Google orqali kirish: email tasdiqlangan — kod so'ralmaydi. Akkaunt yo'q bo'lsa — ro'yxatdan o'tish."""
+    who = await google_auth.verify_id_token(body.id_token)
+    email = normalize_email(who.email)
+    user = await db.scalar(select(User).where(User.email == email))
+    out = await _login_or_register(db, request, user, body.device_name, email=email)
+    if out.status == "needs_registration":
+        out.first_name, out.last_name = who.first_name, who.last_name
+    return out
 
 
 async def _create_user(db: DB, request: Request, body, role: Role, profile) -> AuthOut:

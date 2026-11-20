@@ -249,6 +249,10 @@ class _InviteCardState extends ConsumerState<_InviteCard> {
   bool _rotating = false;
   bool _toggling = false;
 
+  /// Kod va parol odatda yashirin — "Ko'rish" bosilganda ochiladi. Yangi (o'quvchisiz) guruhda
+  /// darhol ochiq: u yerda aynan shu kerak
+  late bool _expanded = widget.group.membersActive == 0;
+
   TeacherGroup get g => widget.group;
 
   void _copy(String value, String what) {
@@ -369,7 +373,11 @@ class _InviteCardState extends ConsumerState<_InviteCard> {
               duration: const Duration(milliseconds: 260),
               curve: Curves.easeOutCubic,
               alignment: Alignment.topCenter,
-              child: open ? _openBody(context) : _closedBody(context),
+              child: !open
+                  ? _closedBody(context)
+                  : _expanded
+                      ? _openBody(context)
+                      : _collapsedBody(context),
             ),
           ],
         ),
@@ -385,6 +393,34 @@ class _InviteCardState extends ConsumerState<_InviteCard> {
             ? "Hamma qo'shilib bo'lgan bo'lsa, shunday qoldiring. Yangi o'quvchi kerak bo'lganda ochib qo'ying."
             : "O'quvchilarni taklif qilish uchun qo'shilishni oching.",
         style: context.text.bodyMedium?.copyWith(color: context.colors.onSurfaceVariant),
+      ),
+    );
+  }
+
+  Widget _collapsedBody(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 12, right: 6),
+      child: Row(
+        children: [
+          Expanded(
+            child: FilledButton.tonalIcon(
+              onPressed: () {
+                HapticFeedback.selectionClick();
+                setState(() => _expanded = true);
+              },
+              style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(48)),
+              icon: const Icon(Icons.visibility_rounded, size: 20),
+              label: const Text("Kod va parolni ko'rish"),
+            ),
+          ),
+          const SizedBox(width: 10),
+          IconButton.filledTonal(
+            tooltip: 'Ulashish',
+            onPressed: _share,
+            style: IconButton.styleFrom(minimumSize: const Size(48, 48)),
+            icon: const Icon(Icons.send_rounded, size: 20),
+          ),
+        ],
       ),
     );
   }
@@ -446,6 +482,17 @@ class _InviteCardState extends ConsumerState<_InviteCard> {
           Text(
             "Har bir so'rovni siz tasdiqlaysiz. Hamma qo'shilgach, qo'shilishni yopib qo'ying.",
             style: context.text.bodySmall?.copyWith(color: context.colors.onSurfaceVariant),
+          ),
+          Align(
+            alignment: Alignment.center,
+            child: TextButton.icon(
+              onPressed: () => setState(() {
+                _expanded = false;
+                _showPassword = false;
+              }),
+              icon: const Icon(Icons.expand_less_rounded),
+              label: const Text('Yashirish'),
+            ),
           ),
         ],
       ),

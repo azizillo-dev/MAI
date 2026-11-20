@@ -31,6 +31,8 @@ import '../../features/teacher/groups/group_detail_screen.dart';
 import '../../features/teacher/groups/groups_screen.dart';
 import '../../features/teacher/home/teacher_home_screen.dart';
 import '../../features/teacher/onboarding/onboarding_screen.dart';
+import '../../features/chat/chat_list_screen.dart';
+import '../../features/chat/chat_screen.dart';
 import 'shells.dart';
 import 'splash_screen.dart';
 
@@ -57,8 +59,17 @@ final pendingInviteProvider = Provider<PendingInvite>((ref) => PendingInvite());
 final _rootKey = GlobalKey<NavigatorState>();
 
 /// Ikkala rol uchun umumiy sahifalar
-bool _shared(String loc) =>
-    loc == '/settings' || loc == '/badges' || loc == '/leaderboard' || loc == '/support' || loc.startsWith('/students/');
+/// Ikkala rol ham ocha oladigan yo'llar. Yangi umumiy ekran qo'shilsa — shu yerga ham qo'shing,
+/// aks holda rol bosh sahifasiga qaytariladi (va push qilinganda Navigator kaliti takrorlanadi)
+bool isSharedLocation(String loc) =>
+    loc == '/settings' ||
+    loc == '/badges' ||
+    loc == '/leaderboard' ||
+    loc == '/support' ||
+    loc.startsWith('/students/') ||
+    loc == '/chats' ||
+    loc.startsWith('/chats/') ||
+    loc.startsWith('/chat/with/');
 
 final routerProvider = Provider<GoRouter>((ref) {
   final refresh = ValueNotifier<int>(0);
@@ -91,13 +102,13 @@ final routerProvider = Provider<GoRouter>((ref) {
         case AuthSignedIn(:final me) when me.isTeacher:
           invite.clear(); // o'qituvchiga guruhga qo'shilish havolasi tegishli emas
           if (me.needsOnboarding) return loc == '/teacher/onboarding' ? null : '/teacher/onboarding';
-          if (_shared(loc)) return null;
+          if (isSharedLocation(loc)) return null;
           if (!loc.startsWith('/teacher') || loc == '/teacher/onboarding') return '/teacher';
           return null;
 
         case AuthSignedIn():
           if (invite.has && loc != '/student/join') return '/student/join';
-          if (_shared(loc)) return null;
+          if (isSharedLocation(loc)) return null;
           return loc.startsWith('/student') ? null : '/student';
       }
     },
@@ -121,6 +132,17 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (_, state) => StudentProfileScreen(studentId: state.pathParameters['id']!),
       ),
       GoRoute(path: '/support', parentNavigatorKey: _rootKey, builder: (_, _) => const SupportScreen()),
+      GoRoute(path: '/chats', parentNavigatorKey: _rootKey, builder: (_, _) => const ChatListScreen()),
+      GoRoute(
+        path: '/chats/:id',
+        parentNavigatorKey: _rootKey,
+        builder: (_, state) => ChatScreen(conversationId: state.pathParameters['id']),
+      ),
+      GoRoute(
+        path: '/chat/with/:userId',
+        parentNavigatorKey: _rootKey,
+        builder: (_, state) => ChatScreen(peerId: state.pathParameters['userId']),
+      ),
       GoRoute(path: '/badges', parentNavigatorKey: _rootKey, builder: (_, _) => const BadgesScreen()),
       GoRoute(
         path: '/leaderboard',

@@ -12,6 +12,7 @@ import '../../../core/widgets/app_widgets.dart';
 import '../application/sign_in_flow.dart';
 import '../data/auth_models.dart';
 import '../data/auth_repository.dart';
+import 'google_button.dart';
 
 final _emailRe = RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]{2,}$');
 
@@ -218,6 +219,10 @@ class _EmailScreenState extends ConsumerState<EmailScreen> {
                 alignment: Alignment.topCenter,
                 child: _buildHelper(context),
               ),
+              const SizedBox(height: 22),
+              const OrDivider(),
+              const SizedBox(height: 16),
+              const GoogleSignInButton(),
               const Spacer(),
               if (Env.smsEnabled || kDebugMode)
                 Center(

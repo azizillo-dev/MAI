@@ -1,5 +1,6 @@
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:mentor_ai/core/router/app_router.dart';
 import 'package:mentor_ai/core/utils/formatters.dart';
 import 'package:mentor_ai/features/auth/data/auth_models.dart';
 import 'package:mentor_ai/features/groups/data/group_models.dart';
@@ -8,6 +9,15 @@ String _fmt(TextInputFormatter f, String input) =>
     f.formatEditUpdate(TextEditingValue.empty, TextEditingValue(text: input)).text;
 
 void main() {
+  test("Chat yo'llari ikkala rol uchun umumiy (aks holda bosh sahifaga qaytariladi)", () {
+    for (final loc in ['/chats', '/chats/abc', '/chat/with/u1', '/students/s1', '/settings']) {
+      expect(isSharedLocation(loc), isTrue, reason: loc);
+    }
+    for (final loc in ['/teacher', '/student/tasks/1', '/chatsx', '/welcome']) {
+      expect(isSharedLocation(loc), isFalse, reason: loc);
+    }
+  });
+
   group('UzPhoneInputFormatter', () {
     final f = UzPhoneInputFormatter();
 

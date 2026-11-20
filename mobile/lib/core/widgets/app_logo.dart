@@ -2,9 +2,14 @@ import 'package:flutter/material.dart';
 
 /// Brend ranglari: logo va kirish videosidagi to'q fon
 abstract final class BrandColors {
-  /// Splash, kirish videosi va Android ochilish ekrani foni (colors.xml bilan bir xil)
-  static const night = Color(0xFF03041A);
+  /// Ochilish ekrani foni (Android colors.xml bilan bir xil): yorug' rejimda och siyohrang —
+  /// to'q logo plitkasi ajralib turadi; qorong'i rejimda — juda to'q emas, logo bo'g'ilmaydi
+  static const splashLight = Color(0xFFF4F5FF);
+  static const splashDark = Color(0xFF141A3A);
   static const glow = Color(0xFF6D5BFF);
+
+  static Color splash(BuildContext context) =>
+      MediaQuery.platformBrightnessOf(context) == Brightness.dark ? splashDark : splashLight;
 }
 
 /// Mentor AI logotipi: yumaloq kvadrat plitka (ilova ikonkasi bilan bir xil)

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mentor_ai/core/theme/app_colors.dart';
 import 'package:mentor_ai/core/theme/app_theme.dart';
+import 'package:mentor_ai/core/widgets/motion.dart';
 import 'package:mentor_ai/core/widgets/otp_field.dart';
 import 'package:mentor_ai/features/assignments/data/assignment_models.dart';
 import 'package:mentor_ai/features/assignments/presentation/widgets.dart';
@@ -82,5 +83,17 @@ void main() {
     await tester.enterText(find.byType(TextField), 'ali@gmial.com');
     await tester.pumpAndSettle();
     expect(find.textContaining('ali@gmail.com', findRichText: true), findsOneWidget); // "Balki ...?"
+  });
+
+  testWidgets("Skelet SliverFillRemaining ichida xatosiz chiziladi (bosh sahifa yuklanishi)", (tester) async {
+    await tester.pumpWidget(_wrap(const Scaffold(
+      body: CustomScrollView(slivers: [
+        SliverToBoxAdapter(child: SizedBox(height: 150)),
+        SliverFillRemaining(hasScrollBody: false, child: SkeletonList(count: 4)),
+      ]),
+    )));
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(tester.takeException(), isNull);
+    expect(find.byType(SkeletonBox), findsWidgets);
   });
 }

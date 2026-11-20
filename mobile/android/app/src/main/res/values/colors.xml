@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- Ochilish ekrani foni: och siyohrang — to'q logo plitkasi va yorqin belgi ajralib turadi.
+     Flutter tomonda BrandColors.splashLight bilan bir xil -->
 <resources>
-    <!-- Logo va kirish videosi foni bilan bir xil: splash → video o'tishi bilinmaydi -->
-    <color name="splash_background">#03041A</color>
+    <color name="splash_background">#F4F5FF</color>
 </resources>

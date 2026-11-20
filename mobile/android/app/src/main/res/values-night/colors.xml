@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Qorong'i rejim: avvalgidan ochroq to'q fon (logo bo'g'ilmasin). BrandColors.splashDark bilan bir xil -->
+<resources>
+    <color name="splash_background">#141A3A</color>
+</resources>

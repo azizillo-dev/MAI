@@ -47,6 +47,12 @@ class StudentProfileScreen extends ConsumerWidget {
                     _Badges(c: c),
                     if (c.teacherView case final tv?) ...[
                       const SizedBox(height: 22),
+                      FilledButton.icon(
+                        onPressed: () => context.push('/chat/with/${c.id}'),
+                        icon: const Icon(Icons.chat_bubble_rounded),
+                        label: Text('${c.firstName}ga xabar yozish'),
+                      ),
+                      const SizedBox(height: 10),
                       Row(
                         children: [
                           Expanded(child: _AskAi(name: c.fullName)),
