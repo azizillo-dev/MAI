@@ -3,6 +3,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/network/api_client.dart';
 
+/// Server vaqti doim UTC. Ba'zi bazalar (lokal SQLite) belgisiz qaytaradi — shunda ham UTC deb o'qiymiz
+DateTime _time(String s) {
+  final hasZone = s.endsWith('Z') || RegExp(r'[+-]\d\d:?\d\d$').hasMatch(s);
+  return DateTime.parse(hasZone ? s : '${s}Z').toLocal();
+}
+
+DateTime? _timeOrNull(Object? s) => s == null ? null : _time(s as String);
+
 class ChatPeer {
   const ChatPeer({required this.id, required this.fullName, required this.initials, required this.role, this.avatarUrl});
 
@@ -48,10 +56,10 @@ class Conversation {
         id: j['id'] as String,
         peer: ChatPeer.fromJson(j['peer'] as Map<String, dynamic>),
         lastText: j['last_message_text'] as String?,
-        lastAt: j['last_message_at'] == null ? null : DateTime.parse(j['last_message_at'] as String).toLocal(),
+        lastAt: _timeOrNull(j['last_message_at']),
         lastFromMe: j['last_from_me'] as bool,
         unread: j['unread'] as int,
-        peerReadAt: j['peer_read_at'] == null ? null : DateTime.parse(j['peer_read_at'] as String).toLocal(),
+        peerReadAt: _timeOrNull(j['peer_read_at']),
         canSend: j['can_send'] as bool,
       );
 }
@@ -71,7 +79,7 @@ class ChatMessage {
         id: j['id'] as String,
         text: j['text'] as String,
         fromMe: j['from_me'] as bool,
-        createdAt: DateTime.parse(j['created_at'] as String).toLocal(),
+        createdAt: _time(j['created_at'] as String),
         raw: j['created_at'] as String,
       );
 }

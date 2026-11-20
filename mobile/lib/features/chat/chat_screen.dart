@@ -526,7 +526,7 @@ class _EmptyChat extends StatelessWidget {
     // Tez boshlash uchun tayyor jumlalar (bosilsa — maydonga tushadi, tahrirlab yuborsa bo'ladi)
     final quick = peer.isTeacher
         ? ["Assalomu alaykum, ustoz!", "Vazifani tushunmadim, yordam bera olasizmi?", "Ishimni qayta tekshirib bering"]
-        : ["Assalomu alaykum, $first!", "Uy vazifangizni ko'rdim — barakalla!", "Oxirgi ishingizda xatolar bor, keling ko'rib chiqamiz"];
+        : ["Assalomu alaykum, $first!", "Uy vazifangizni ko'rdim — barakalla!", "Oxirgi ishingizni birga ko'rib chiqamiz"];
     return ListView(
       padding: const EdgeInsets.fromLTRB(24, 48, 24, 24),
       children: [

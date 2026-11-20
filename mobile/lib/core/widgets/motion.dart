@@ -175,37 +175,43 @@ class SkeletonList extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final card = context.theme.cardTheme;
+    // ListView emas: SliverFillRemaining kabi joylar balandlikni oldindan so'raydi (intrinsic),
+    // ListView buni bera olmaydi va xato beradi. Oddiy ustun — har qanday joyda xavfsiz
     return Skeleton(
-      child: ListView.separated(
-        shrinkWrap: true,
+      child: SingleChildScrollView(
         physics: const NeverScrollableScrollPhysics(),
         padding: padding ?? Insets.screen.copyWith(top: 12, bottom: 24),
-        itemCount: count,
-        separatorBuilder: (_, _) => const SizedBox(height: 10),
-        itemBuilder: (context, i) => Container(
-          padding: const EdgeInsets.all(Insets.lg),
-          decoration: ShapeDecoration(
-            shape: card.shape ?? RoundedRectangleBorder(borderRadius: BorderRadius.circular(Radii.lg)),
-            color: context.colors.surface,
-          ),
-          child: Row(
-            children: [
-              const SkeletonBox(width: 46, height: 46, radius: 14),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+        child: Column(
+          children: [
+            for (var i = 0; i < count; i++) ...[
+              if (i > 0) const SizedBox(height: 10),
+              Container(
+                padding: const EdgeInsets.all(Insets.lg),
+                decoration: ShapeDecoration(
+                  shape: card.shape ?? RoundedRectangleBorder(borderRadius: BorderRadius.circular(Radii.lg)),
+                  color: card.color ?? context.colors.surface,
+                ),
+                child: Row(
                   children: [
-                    FractionallySizedBox(widthFactor: i.isEven ? 0.7 : 0.55, child: const SkeletonBox(height: 15)),
-                    const SizedBox(height: 8),
-                    const FractionallySizedBox(widthFactor: 0.45, child: SkeletonBox(height: 11)),
-                    const SizedBox(height: 10),
-                    const SkeletonBox(width: 84, height: 22, radius: 100),
+                    const SkeletonBox(width: 46, height: 46, radius: 14),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          FractionallySizedBox(widthFactor: i.isEven ? 0.7 : 0.55, child: const SkeletonBox(height: 15)),
+                          const SizedBox(height: 8),
+                          const FractionallySizedBox(widthFactor: 0.45, child: SkeletonBox(height: 11)),
+                          const SizedBox(height: 10),
+                          const SkeletonBox(width: 84, height: 22, radius: 100),
+                        ],
+                      ),
+                    ),
                   ],
                 ),
               ),
             ],
-          ),
+          ],
         ),
       ),
     );
