@@ -26,7 +26,10 @@ const _tileRadius = Radii.card;
 // ---------------------------------------------------------------- Sarlavha
 
 class BentoHeader extends ConsumerWidget {
-  const BentoHeader({super.key});
+  const BentoHeader({super.key, this.profilePath = '/teacher/profile'});
+
+  /// Avatar bosilganda ochiladigan profil tabi
+  final String profilePath;
 
   String _greeting() {
     final h = DateTime.now().hour;
@@ -73,9 +76,9 @@ class BentoHeader extends ConsumerWidget {
           const ChatButton(),
           const SizedBox(width: 10),
           Pressable(
-            onTap: () => context.go('/teacher/profile'),
+            onTap: () => context.go(profilePath),
             child: GestureDetector(
-              onTap: () => context.go('/teacher/profile'),
+              onTap: () => context.go(profilePath),
               child: Avatar(initials: me?.initials ?? '', imageUrl: me?.avatarUrl, size: 50),
             ),
           ),
@@ -313,6 +316,9 @@ class _AvatarStack extends StatelessWidget {
 
 // ---------------------------------------------------------------- Bento bloklar
 
+/// Bento qatori balandligi: shrift kattalashtirilsa (tizim sozlamasi) bloklar ham o'sadi — matn toshmaydi
+double bentoRowHeight(BuildContext context) => MediaQuery.textScalerOf(context).scale(210).clamp(210, 300);
+
 /// Bento blok: chegarasiz, yumaloq; [tint] berilsa — shu rangda yengil bo'yalgan
 class BentoTile extends StatelessWidget {
   const BentoTile({super.key, required this.child, this.tint, this.onTap, this.padding = const EdgeInsets.all(16)});
@@ -356,8 +362,8 @@ class BentoTile extends StatelessWidget {
 }
 
 /// Blok yuqorisidagi kichik ikonka + yorliq
-class _TileLabel extends StatelessWidget {
-  const _TileLabel({required this.icon, required this.label, required this.color});
+class BentoLabel extends StatelessWidget {
+  const BentoLabel({super.key, required this.icon, required this.label, required this.color});
 
   final IconData icon;
   final String label;
@@ -385,8 +391,8 @@ class _TileLabel extends StatelessWidget {
   );
 }
 
-class _BigNumber extends StatelessWidget {
-  const _BigNumber(this.value, {this.color, this.size = 34});
+class BentoNumber extends StatelessWidget {
+  const BentoNumber(this.value, {super.key, this.color, this.size = 34});
 
   final String value;
   final Color? color;
@@ -419,7 +425,7 @@ class BentoStats extends StatelessWidget {
     return Column(
       children: [
         SizedBox(
-          height: 196,
+          height: bentoRowHeight(context),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
@@ -438,9 +444,9 @@ class BentoStats extends StatelessWidget {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            _TileLabel(icon: Icons.people_alt_rounded, label: "O'quvchilar", color: c.info),
+                            BentoLabel(icon: Icons.people_alt_rounded, label: "O'quvchilar", color: c.info),
                             const Spacer(),
-                            _BigNumber('${s.students}', size: 28),
+                            BentoNumber('${s.students}', size: 28),
                           ],
                         ),
                       ),
@@ -454,9 +460,9 @@ class BentoStats extends StatelessWidget {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            _TileLabel(icon: Icons.assignment_rounded, label: 'Faol vazifa', color: c.success),
+                            BentoLabel(icon: Icons.assignment_rounded, label: 'Faol vazifa', color: c.success),
                             const Spacer(),
-                            _BigNumber('${s.openAssignments}', size: 28),
+                            BentoNumber('${s.openAssignments}', size: 28),
                           ],
                         ),
                       ),
@@ -506,7 +512,7 @@ class _WeekScoreTile extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _TileLabel(icon: Icons.insights_rounded, label: 'Shu hafta', color: context.colors.primary),
+          BentoLabel(icon: Icons.insights_rounded, label: 'Shu hafta', color: context.colors.primary),
           const Spacer(),
           Center(
             child: SizedBox.square(
@@ -532,7 +538,7 @@ class _WeekScoreTile extends StatelessWidget {
                           if (avg == null)
                             Icon(Icons.hourglass_empty_rounded, size: 26, color: color)
                           else
-                            _BigNumber('${(v * 100).round()}%', size: 26, color: color),
+                            BentoNumber('${(v * 100).round()}%', size: 26, color: color),
                           const SizedBox(height: 2),
                           Text(
                             label,
@@ -578,9 +584,9 @@ class _ActivityTile extends StatelessWidget {
           Row(
             children: [
               Expanded(
-                child: _TileLabel(icon: Icons.bar_chart_rounded, label: 'Topshirilgan ishlar · 7 kun', color: p),
+                child: BentoLabel(icon: Icons.bar_chart_rounded, label: 'Topshirilgan ishlar · 7 kun', color: p),
               ),
-              _BigNumber('$total', size: 22),
+              BentoNumber('$total', size: 22),
             ],
           ),
           const SizedBox(height: 14),

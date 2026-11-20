@@ -8,6 +8,7 @@ import 'package:mentor_ai/core/widgets/otp_field.dart';
 import 'package:mentor_ai/features/assignments/data/assignment_models.dart';
 import 'package:mentor_ai/features/assignments/presentation/widgets.dart';
 import 'package:mentor_ai/features/auth/presentation/welcome_screen.dart';
+import 'package:mentor_ai/features/student/home/student_bento.dart';
 import 'package:mentor_ai/features/auth/presentation/email_screen.dart';
 
 Widget _wrap(Widget child, {Brightness brightness = Brightness.light}) => ProviderScope(
@@ -95,5 +96,42 @@ void main() {
     await tester.pump(const Duration(milliseconds: 300));
     expect(tester.takeException(), isNull);
     expect(find.byType(SkeletonBox), findsWidgets);
+  });
+
+  testWidgets("O'quvchi bento: kechikkan vazifa bo'lsa 'hammasi topshirilgan' demaydi", (tester) async {
+    StudentAssignment task(String id, Duration fromNow, {bool late = true}) => StudentAssignment.fromJson({
+          'id': id, 'group_name': '7-B', 'subject': 'math', 'teacher_name': 'Ustoz', 'title': 'Vazifa $id',
+          'source_type': 'text', 'items': <dynamic>[], 'rubric': <dynamic>[], 'image_urls': <dynamic>[],
+          'due_at': DateTime.now().add(fromNow).toUtc().toIso8601String(),
+          'allow_late': late, 'late_penalty_percent': 0, 'grading_scale': '5', 'submission': null,
+        });
+    Future<void> show(List<StudentAssignment> list) async {
+      await tester.pumpWidget(_wrap(Scaffold(body: Padding(
+        padding: const EdgeInsets.all(16),
+        child: StudentBento(list: list),
+      ))));
+      await tester.pump(const Duration(seconds: 1));
+    }
+
+    await show([task('1', const Duration(days: -3)), task('2', const Duration(days: -1))]);
+    expect(find.text('Kechikkan'), findsOneWidget);
+    expect(find.text('2 ta'), findsOneWidget);
+    expect(find.text('Hammasi topshirilgan'), findsNothing);
+
+    // Tizim shrifti 1.3 baravar kattalashtirilganda ham toshmasin
+    await tester.pumpWidget(_wrap(MediaQuery(
+      data: const MediaQueryData(textScaler: TextScaler.linear(1.3)),
+      child: Scaffold(body: Padding(
+        padding: const EdgeInsets.all(16),
+        child: StudentBento(list: [task('4', const Duration(days: -2))]),
+      )),
+    )));
+    await tester.pump(const Duration(seconds: 1));
+    expect(tester.takeException(), isNull);
+
+    await show([task('3', const Duration(hours: 5))]);
+    expect(find.text('Keyingi muddat'), findsOneWidget);
+    expect(find.text('5 soat').evaluate().isNotEmpty || find.text('4 soat').evaluate().isNotEmpty, isTrue);
+    expect(tester.takeException(), isNull);
   });
 }

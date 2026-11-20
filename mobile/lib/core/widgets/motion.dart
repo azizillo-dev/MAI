@@ -217,3 +217,59 @@ class SkeletonList extends StatelessWidget {
     );
   }
 }
+
+
+/// Sahifa pastga aylantirilganda status bar (soat) ostiga fon chiqaradi — matn soat ustiga
+/// tushmaydi. Tepada (aylantirilmaganda) shaffof: sahifa foni ko'rinib turadi.
+class StatusBarScrim extends StatefulWidget {
+  const StatusBarScrim({super.key, required this.child, this.threshold = 40});
+
+  /// Aylantiriladigan sahifa (CustomScrollView va h.k.)
+  final Widget child;
+  final double threshold;
+
+  @override
+  State<StatusBarScrim> createState() => _StatusBarScrimState();
+}
+
+class _StatusBarScrimState extends State<StatusBarScrim> {
+  final _scrolled = ValueNotifier(false);
+
+  @override
+  void dispose() {
+    _scrolled.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final top = MediaQuery.paddingOf(context).top;
+    return Stack(
+      children: [
+        NotificationListener<ScrollNotification>(
+          onNotification: (n) {
+            if (n.depth == 0) _scrolled.value = n.metrics.pixels > widget.threshold;
+            return false;
+          },
+          child: widget.child,
+        ),
+        Positioned(
+          top: 0,
+          left: 0,
+          right: 0,
+          height: top,
+          child: IgnorePointer(
+            child: ValueListenableBuilder<bool>(
+              valueListenable: _scrolled,
+              builder: (context, scrolled, _) => AnimatedOpacity(
+                opacity: scrolled ? 1 : 0,
+                duration: const Duration(milliseconds: 180),
+                child: ColoredBox(color: Theme.of(context).scaffoldBackgroundColor),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
